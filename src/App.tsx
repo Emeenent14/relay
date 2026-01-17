@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
-import { ServerList } from './components/features/servers/ServerList';
+import { CatalogPage } from './components/features/CatalogPage';
 import { SettingsPage } from './components/features/settings/SettingsPage';
 import { AddServerDialog } from './components/features/servers/AddServerDialog';
 import { EditServerDialog } from './components/features/servers/EditServerDialog';
@@ -27,7 +27,7 @@ function App() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
-        {currentPage === 'servers' && <ServerList />}
+        {currentPage === 'servers' && <CatalogPage />}
         {currentPage === 'settings' && <SettingsPage />}
       </main>
 
