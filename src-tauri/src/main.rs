@@ -34,7 +34,7 @@ async fn main() {
             commands::servers::delete_server,
             commands::servers::toggle_server,
             // Config commands
-            commands::config::get_claude_config_path,
+            commands::config::get_config_path,
             commands::config::export_to_claude,
             commands::config::export_config,
             commands::config::read_claude_config,

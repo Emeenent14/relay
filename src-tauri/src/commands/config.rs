@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use serde_json::{json, Value};
 
 #[tauri::command]
-pub async fn get_claude_config_path() -> Result<String, String> {
+pub async fn get_config_path() -> Result<String, String> {
     get_claude_config_path()
         .map(|p| p.to_string_lossy().to_string())
         .ok_or_else(|| "Could not determine Claude config path".to_string())
