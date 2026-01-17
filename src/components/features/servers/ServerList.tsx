@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
-import { Plus, Upload, RefreshCw, Server } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Upload, RefreshCw, Server, Library } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { ServerCard } from './ServerCard';
+import { ServerCatalogDialog } from './ServerCatalogDialog';
 import { useServerStore } from '../../../stores/serverStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useToast } from '../../ui/use-toast';
@@ -11,6 +12,7 @@ export function ServerList() {
     const { servers, loading, error, fetchServers } = useServerStore();
     const { openAddDialog } = useUIStore();
     const { toast } = useToast();
+    const [catalogOpen, setCatalogOpen] = useState(false);
 
     useEffect(() => {
         fetchServers();
@@ -67,9 +69,18 @@ export function ServerList() {
                         Export to Claude
                     </Button>
 
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCatalogOpen(true)}
+                    >
+                        <Library className="h-4 w-4 mr-2" />
+                        Browse Catalog
+                    </Button>
+
                     <Button size="sm" onClick={openAddDialog}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Server
+                        Add Custom
                     </Button>
                 </div>
             </div>
@@ -105,6 +116,9 @@ export function ServerList() {
                     </div>
                 )}
             </div>
+
+            {/* Catalog Dialog */}
+            <ServerCatalogDialog open={catalogOpen} onOpenChange={setCatalogOpen} />
         </div>
     );
 }
