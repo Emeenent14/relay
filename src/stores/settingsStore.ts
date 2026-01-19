@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { settingsApi } from '../lib/tauri';
 import type { AppSettings } from '../types/settings';
+import { DEFAULT_SETTINGS } from '../types/settings';
 
 interface SettingsState {
     settings: AppSettings;
@@ -10,17 +11,13 @@ interface SettingsState {
     // Actions
     fetchSettings: () => Promise<void>;
     updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
-    setTheme: (theme: string) => Promise<void>;
+    setTheme: (theme: AppSettings['theme']) => Promise<void>;
     setAutoExport: (autoExport: boolean) => Promise<void>;
+    resetToDefaults: () => Promise<void>;
 }
 
-const defaultSettings: AppSettings = {
-    theme: 'dark',
-    autoExport: false,
-};
-
 export const useSettingsStore = create<SettingsState>((set, get) => ({
-    settings: defaultSettings,
+    settings: DEFAULT_SETTINGS,
     loading: false,
     error: null,
 
@@ -60,6 +57,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
     setAutoExport: async (autoExport) => {
         await get().updateSettings({ autoExport });
+    },
+
+    resetToDefaults: async () => {
+        set({ error: null });
+        try {
+            await settingsApi.update(DEFAULT_SETTINGS);
+            set({ settings: DEFAULT_SETTINGS });
+            applyTheme(DEFAULT_SETTINGS.theme);
+        } catch (error) {
+            set({ error: String(error) });
+            throw error;
+        }
     },
 }));
 

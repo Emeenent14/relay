@@ -7,6 +7,10 @@ export const SERVER_CATEGORIES = [
     { value: 'api', label: 'API' },
     { value: 'productivity', label: 'Productivity' },
     { value: 'development', label: 'Development' },
+    { value: 'cloud', label: 'Cloud' },
+    { value: 'communication', label: 'Communication' },
+    { value: 'search', label: 'Search' },
+    { value: 'automation', label: 'Automation' },
     { value: 'other', label: 'Other' },
 ] as const;
 
@@ -32,6 +36,10 @@ export const CATEGORY_ICONS: Record<ServerCategory, string> = {
     api: 'Globe',
     productivity: 'Zap',
     development: 'Code',
+    cloud: 'Cloud',
+    communication: 'MessageSquare',
+    search: 'Search',
+    automation: 'Bot',
     other: 'Box',
 };
 
@@ -44,5 +52,22 @@ export const CATEGORY_COLORS: Record<ServerCategory, string> = {
     api: 'bg-green-500/20 text-green-400',
     productivity: 'bg-yellow-500/20 text-yellow-400',
     development: 'bg-orange-500/20 text-orange-400',
+    cloud: 'bg-cyan-500/20 text-cyan-400',
+    communication: 'bg-pink-500/20 text-pink-400',
+    search: 'bg-indigo-500/20 text-indigo-400',
+    automation: 'bg-rose-500/20 text-rose-400',
     other: 'bg-gray-500/20 text-gray-400',
 };
+
+/**
+ * Default command runners
+ */
+export const COMMAND_RUNNERS = [
+    { value: 'npx', label: 'npx (Node.js)' },
+    { value: 'node', label: 'node' },
+    { value: 'python', label: 'python' },
+    { value: 'uvx', label: 'uvx (Python uv)' },
+] as const;
+
+export type CommandRunner = typeof COMMAND_RUNNERS[number]['value'];
+
