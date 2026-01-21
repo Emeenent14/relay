@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils';
-import { Server, Settings, Zap } from 'lucide-react';
+import { Server, Settings } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 
 const navItems = [
@@ -15,9 +15,11 @@ export function Sidebar() {
             {/* Logo / Brand */}
             <div className="p-6 border-b border-border">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                        <Zap className="h-5 w-5 text-white" />
-                    </div>
+                    <img
+                        src="/relay.png"
+                        alt="Relay"
+                        className="w-10 h-10 object-contain"
+                    />
                     <div>
                         <h1 className="text-lg font-bold tracking-tight">Relay</h1>
                         <p className="text-xs text-muted-foreground">MCP Server Manager</p>
