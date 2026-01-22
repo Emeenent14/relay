@@ -10,7 +10,7 @@ pub fn get_claude_config_path() -> Option<PathBuf> {
     let path = home.join("AppData/Roaming/Claude/claude_desktop_config.json");
 
     #[cfg(target_os = "linux")]
-    let path = home.join(".config/claude/claude_desktop_config.json");
+    let path = home.join(".config/Claude/claude_desktop_config.json");
 
     Some(path)
 }
