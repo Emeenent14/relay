@@ -9,6 +9,7 @@ import {
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Card } from '../../ui/card';
+import { Badge } from '../../ui/badge';
 import { useServerStore } from '../../../stores/serverStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useToast } from '../../ui/use-toast';
@@ -26,6 +27,9 @@ import {
     Code,
     Box,
     Star,
+    Cloud,
+    MessageSquare,
+    Bot,
 } from 'lucide-react';
 
 const categoryIcons: Record<ServerCategory, React.ReactNode> = {
@@ -34,6 +38,10 @@ const categoryIcons: Record<ServerCategory, React.ReactNode> = {
     api: <Globe className="h-4 w-4" />,
     productivity: <Zap className="h-4 w-4" />,
     development: <Code className="h-4 w-4" />,
+    cloud: <Cloud className="h-4 w-4" />,
+    communication: <MessageSquare className="h-4 w-4" />,
+    search: <Search className="h-4 w-4" />,
+    automation: <Bot className="h-4 w-4" />,
     other: <Box className="h-4 w-4" />,
 };
 
@@ -99,6 +107,10 @@ export function ServerCatalogDialog({ open, onOpenChange }: ServerCatalogDialogP
         { value: 'development', label: 'Development' },
         { value: 'api', label: 'API' },
         { value: 'productivity', label: 'Productivity' },
+        { value: 'cloud', label: 'Cloud' },
+        { value: 'communication', label: 'Communication' },
+        { value: 'search', label: 'Search' },
+        { value: 'automation', label: 'Automation' },
         { value: 'other', label: 'Other' },
     ];
 
@@ -142,6 +154,16 @@ export function ServerCatalogDialog({ open, onOpenChange }: ServerCatalogDialogP
 
                 {/* Server list */}
                 <div className="flex-1 overflow-auto space-y-2 min-h-0">
+                    {/* Community servers disclaimer */}
+                    {filteredServers.some(s => s.verified === false) && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-2">
+                            <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                                <strong>⚠️ Unverified Servers:</strong> Community servers marked as "Unverified" have not been tested.
+                                Some packages may not exist on npm or may require different installation steps.
+                                Use at your own discretion and report issues if you encounter problems.
+                            </p>
+                        </div>
+                    )}
                     {filteredServers.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                             No servers found
@@ -159,10 +181,20 @@ export function ServerCatalogDialog({ open, onOpenChange }: ServerCatalogDialogP
                                             {categoryIcons[server.category]}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                 <h4 className="font-medium">{server.name}</h4>
                                                 {server.source === 'official' && (
                                                     <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                                                )}
+                                                {server.verified === true && (
+                                                    <Badge variant="success" className="text-[10px] px-1.5 py-0">
+                                                        Verified
+                                                    </Badge>
+                                                )}
+                                                {server.verified === false && (
+                                                    <Badge variant="warning" className="text-[10px] px-1.5 py-0">
+                                                        Unverified
+                                                    </Badge>
                                                 )}
                                                 <span className={cn(
                                                     'px-2 py-0.5 rounded-full text-xs',

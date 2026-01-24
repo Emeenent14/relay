@@ -52,3 +52,6 @@ coverage/
 *.tmp
 *.temp
 .cache/
+
+# Public assets (should be in src-tauri/icons)
+public/
