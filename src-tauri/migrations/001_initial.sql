@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS servers (
     marketplace_id TEXT,
     icon_url TEXT,
     documentation_url TEXT,
+    secrets TEXT DEFAULT '[]',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );

@@ -78,7 +78,7 @@ export function ServerList() {
                         Browse Catalog
                     </Button>
 
-                    <Button size="sm" onClick={openAddDialog}>
+                    <Button size="sm" onClick={() => openAddDialog()}>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Custom
                     </Button>
@@ -97,7 +97,7 @@ export function ServerList() {
                         <Server className="h-12 w-12 mb-4 opacity-50" />
                         <h3 className="text-lg font-medium mb-2">No servers configured</h3>
                         <p className="text-sm mb-4">Add your first MCP server to get started</p>
-                        <Button onClick={openAddDialog}>
+                        <Button onClick={() => openAddDialog()}>
                             <Plus className="h-4 w-4 mr-2" />
                             Add Server
                         </Button>

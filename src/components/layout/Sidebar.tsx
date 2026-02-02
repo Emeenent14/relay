@@ -1,9 +1,11 @@
 import { cn } from '../../lib/utils';
-import { Server, Settings } from 'lucide-react';
+import { Server, Settings, Search, LayoutGrid } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 
 const navItems = [
     { id: 'servers' as const, label: 'Servers', icon: Server },
+    { id: 'marketplace' as const, label: 'Marketplace', icon: LayoutGrid },
+    { id: 'inspector' as const, label: 'Inspector', icon: Search },
     { id: 'settings' as const, label: 'Settings', icon: Settings },
 ];
 

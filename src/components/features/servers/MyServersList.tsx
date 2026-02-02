@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Plus, Upload, RefreshCw, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Upload, RefreshCw, Pencil, Trash2, Terminal } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Switch } from '../../ui/switch';
@@ -11,7 +11,7 @@ import { cn } from '../../../lib/utils';
 
 export function MyServersList() {
     const { servers, loading, fetchServers, toggleServer } = useServerStore();
-    const { openAddDialog, openEditDialog, openDeleteDialog } = useUIStore();
+    const { openAddDialog, openEditDialog, openDeleteDialog, openLogsDialog } = useUIStore();
     const { toast } = useToast();
 
     useEffect(() => {
@@ -53,7 +53,7 @@ export function MyServersList() {
             {/* Actions bar */}
             <div className="flex items-center justify-between gap-4 p-4 border-b border-border">
                 <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={openAddDialog}>
+                    <Button size="sm" onClick={() => openAddDialog()}>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Server
                     </Button>
@@ -73,7 +73,7 @@ export function MyServersList() {
                     <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
                         <p className="text-lg mb-2">No servers configured</p>
                         <p className="text-sm mb-4">Add a server or browse the catalog</p>
-                        <Button onClick={openAddDialog}>
+                        <Button onClick={() => openAddDialog()}>
                             <Plus className="h-4 w-4 mr-2" />
                             Add Server
                         </Button>
@@ -86,7 +86,9 @@ export function MyServersList() {
                                     {/* Status dot */}
                                     <div className={cn(
                                         'w-2 h-2 rounded-full shrink-0',
-                                        server.enabled ? 'bg-foreground' : 'bg-muted-foreground/30'
+                                        server.status === 'running'
+                                            ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'
+                                            : server.enabled ? 'bg-yellow-500' : 'bg-muted-foreground/30'
                                     )} />
 
                                     {/* Info */}
@@ -94,7 +96,7 @@ export function MyServersList() {
                                         <div className="flex items-center gap-2">
                                             <h3 className="font-medium">{server.name}</h3>
                                             {server.category && (
-                                                <span className="text-xs text-muted-foreground">
+                                                <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-medium uppercase tracking-wider">
                                                     {server.category}
                                                 </span>
                                             )}
@@ -106,6 +108,14 @@ export function MyServersList() {
 
                                     {/* Actions */}
                                     <div className="flex items-center gap-1 shrink-0">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                            onClick={() => openLogsDialog(server)}
+                                        >
+                                            <Terminal className="h-4 w-4" />
+                                        </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(server)}>
                                             <Pencil className="h-4 w-4" />
                                         </Button>

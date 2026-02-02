@@ -33,6 +33,7 @@ export function ServerCatalog() {
                 command: template.command,
                 args: template.args,
                 category: template.category,
+                marketplace_id: template.id,
             });
             toast({
                 title: 'Server Added',

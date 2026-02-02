@@ -10,6 +10,7 @@ pub struct Server {
     pub command: String,
     pub args: String,
     pub env: String,
+    pub secrets: String, // JSON array of secret keys
     pub enabled: bool,
     pub category: String,
     pub source: String,
@@ -27,7 +28,9 @@ pub struct CreateServerInput {
     pub command: String,
     pub args: Option<Vec<String>>,
     pub env: Option<HashMap<String, String>>,
+    pub secrets: Option<Vec<String>>,
     pub category: Option<String>,
+    pub marketplace_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,6 +41,7 @@ pub struct UpdateServerInput {
     pub command: Option<String>,
     pub args: Option<Vec<String>>,
     pub env: Option<HashMap<String, String>>,
+    pub secrets: Option<Vec<String>>,
     pub enabled: Option<bool>,
     pub category: Option<String>,
 }

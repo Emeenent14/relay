@@ -15,8 +15,9 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         .connect(&db_url)
         .await?;
 
-    // Run migrations
-    sqlx::query(include_str!("../migrations/001_initial.sql"))
+    // Run migrations - use raw_execute for multi-statement SQL
+    let migration_sql = include_str!("../migrations/001_initial.sql");
+    sqlx::raw_sql(migration_sql)
         .execute(&pool)
         .await?;
 

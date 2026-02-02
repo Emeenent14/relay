@@ -9,6 +9,9 @@ export const serverApi = {
     /** Get all servers */
     getAll: () => invoke<Server[]>('get_servers'),
 
+    /** Sync all servers */
+    sync: () => invoke<void>('sync_servers'),
+
     /** Get a single server by ID */
     getOne: (id: string) => invoke<Server>('get_server', { id }),
 

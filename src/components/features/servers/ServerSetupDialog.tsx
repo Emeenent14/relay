@@ -78,6 +78,7 @@ export function ServerSetupDialog({ template, open, onOpenChange, onSuccess }: S
                 args: newArgs,
                 env: Object.keys(newEnv).length > 0 ? newEnv : undefined,
                 category: template.category,
+                marketplace_id: template.id,
             });
 
             toast({
