@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
+import { useToast } from '../../ui/use-toast';
+import { configApi } from '../../../lib/tauri';
 import { MCP_CLIENTS, type ClientConfig } from '../../../lib/clientCatalog';
+import { ConnectCustomDialog } from './ConnectCustomDialog';
 import {
     MessageSquare,
     MousePointer,
@@ -13,6 +16,7 @@ import {
     ChevronUp,
     ExternalLink,
     Settings,
+    Check,
 } from 'lucide-react';
 
 const clientIcons: Record<string, React.ReactNode> = {
@@ -25,6 +29,8 @@ const clientIcons: Record<string, React.ReactNode> = {
 };
 
 export function ClientList() {
+    const [customDialogOpen, setCustomDialogOpen] = useState(false);
+
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
@@ -37,9 +43,12 @@ export function ClientList() {
             {/* Content */}
             <div className="flex-1 overflow-auto p-4 space-y-4">
                 {/* Generic connect section */}
-                <Card className="p-4 hover:bg-muted/50 transition-colors">
+                <Card
+                    className="p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
+                    onClick={() => setCustomDialogOpen(true)}
+                >
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center group-hover:bg-background transition-colors">
                             <Settings className="h-5 w-5 text-muted-foreground" />
                         </div>
                         <div className="flex-1">
@@ -73,12 +82,40 @@ export function ClientList() {
                     ))}
                 </div>
             </div>
+
+            <ConnectCustomDialog
+                open={customDialogOpen}
+                onOpenChange={setCustomDialogOpen}
+            />
         </div>
     );
 }
 
 function ClientCard({ client }: { client: ClientConfig }) {
     const [expanded, setExpanded] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
+    const { toast } = useToast();
+
+    const handleConnect = async (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent card expansion if we were clicking card
+        try {
+            const path = await configApi.exportToClient(client.id);
+            setIsConnected(true);
+            toast({
+                title: 'Connected successfully',
+                description: `Configuration exported to ${path}`,
+            });
+
+            // Reset state after 3 seconds
+            setTimeout(() => setIsConnected(false), 3000);
+        } catch (error) {
+            toast({
+                title: 'Connection Failed',
+                description: String(error),
+                variant: 'destructive',
+            });
+        }
+    };
 
     return (
         <Card className="overflow-hidden hover:bg-muted/50 transition-colors">
@@ -99,7 +136,22 @@ function ClientCard({ client }: { client: ClientConfig }) {
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">
                     {client.supported ? (
-                        <Button size="sm">Connect</Button>
+                        <Button
+                            size="sm"
+                            onClick={handleConnect}
+                            disabled={isConnected}
+                            variant={isConnected ? "outline" : "default"}
+                            className={isConnected ? "text-green-600 border-green-600 hover:text-green-700" : ""}
+                        >
+                            {isConnected ? (
+                                <>
+                                    <Check className="h-4 w-4 mr-2" />
+                                    Connected
+                                </>
+                            ) : (
+                                "Connect"
+                            )}
+                        </Button>
                     ) : (
                         <Button variant="outline" size="sm" disabled>
                             Coming Soon
