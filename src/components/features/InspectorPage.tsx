@@ -146,9 +146,14 @@ export function InspectorPage() {
                                         </div>
                                         <div className="max-w-[250px]">
                                             <p className="text-sm font-medium">No tools loaded</p>
-                                            <p className="text-xs text-muted-foreground mt-1">
+                                            <p className="text-xs text-muted-foreground mt-1 mb-3">
                                                 Connect to a server to view its available tools and resources.
                                             </p>
+                                            <Button variant="link" size="sm" className="h-auto p-0 text-xs" asChild>
+                                                <a href="https://modelcontextprotocol.io/introduction" target="_blank" rel="noopener noreferrer">
+                                                    Learn to build MCP servers
+                                                </a>
+                                            </Button>
                                         </div>
                                     </div>
                                 ) : (
@@ -157,8 +162,8 @@ export function InspectorPage() {
                                             <div
                                                 key={tool.name}
                                                 className={`p-4 rounded-lg border transition-all cursor-pointer ${selectedTool?.name === tool.name
-                                                        ? 'bg-primary/5 border-primary shadow-sm'
-                                                        : 'bg-card hover:bg-accent hover:border-accent-foreground/20'
+                                                    ? 'bg-primary/5 border-primary shadow-sm'
+                                                    : 'bg-card hover:bg-accent hover:border-accent-foreground/20'
                                                     }`}
                                                 onClick={() => setSelectedTool(tool)}
                                             >

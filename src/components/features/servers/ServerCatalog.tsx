@@ -116,30 +116,69 @@ export function ServerCatalog() {
                 </div>
 
                 {filteredServers.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                        No servers found matching your search
-                    </div>
-                ) : viewMode === 'grid' ? (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {filteredServers.map((server) => (
-                            <ServerCard
-                                key={server.id}
-                                server={server}
-                                onAdd={() => handleAddServer(server)}
-                                adding={adding === server.id}
-                            />
-                        ))}
+                    <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+                        <div className="p-4 rounded-full bg-accent/50">
+                            <Search className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="font-medium">No servers found</h3>
+                            <p className="text-sm text-muted-foreground">
+                                Don't see what you're looking for?
+                            </p>
+                        </div>
+                        <Button variant="outline" onClick={() => (document.getElementById('sidebar-marketplace') as HTMLElement)?.click()}>
+                            Browse Marketplace
+                        </Button>
                     </div>
                 ) : (
-                    <div className="space-y-2">
-                        {filteredServers.map((server) => (
-                            <ServerListItem
-                                key={server.id}
-                                server={server}
-                                onAdd={() => handleAddServer(server)}
-                                adding={adding === server.id}
-                            />
-                        ))}
+                    <div className="space-y-6">
+                        {viewMode === 'grid' ? (
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {filteredServers.map((server) => (
+                                    <ServerCard
+                                        key={server.id}
+                                        server={server}
+                                        onAdd={() => handleAddServer(server)}
+                                        adding={adding === server.id}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {filteredServers.map((server) => (
+                                    <ServerListItem
+                                        key={server.id}
+                                        server={server}
+                                        onAdd={() => handleAddServer(server)}
+                                        adding={adding === server.id}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Contribution Banner */}
+                        <div className="rounded-lg border border-dashed border-border p-4 bg-accent/20 flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-primary/10 rounded-md">
+                                    <Users className="h-5 w-5 text-primary" />
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-medium">Want to add your own server?</h4>
+                                    <p className="text-xs text-muted-foreground">
+                                        Contribute to the catalog and share your server with the community.
+                                    </p>
+                                </div>
+                            </div>
+                            <Button variant="ghost" size="sm" asChild>
+                                <a
+                                    href="https://github.com/Emeenent14/relay/blob/master/CONTRIBUTING.md"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Read Guide
+                                </a>
+                            </Button>
+                        </div>
                     </div>
                 )}
             </div>

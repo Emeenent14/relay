@@ -160,6 +160,27 @@ export function MarketplacePage() {
                 </div>
 
                 <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+                    {/* GitHub Star Banner */}
+                    <div className="mb-6 rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-background rounded-full border border-border">
+                                <span className="text-xl">⭐️</span>
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-sm">Star us on GitHub</h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Love Relay? Support us by starring the repository!
+                                </p>
+                            </div>
+                        </div>
+                        <Button size="sm" className="gap-2" asChild>
+                            <a href="https://github.com/Emeenent14/relay" target="_blank" rel="noopener noreferrer">
+                                <Globe className="h-4 w-4" />
+                                Star Repo
+                            </a>
+                        </Button>
+                    </div>
+
                     {isLoading ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
@@ -181,24 +202,43 @@ export function MarketplacePage() {
                             </Button>
                         </div>
                     ) : filteredServers.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-64 text-center">
-                            <Globe className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                            <p className="text-sm font-medium text-muted-foreground">
-                                {searchQuery || selectedCategory !== 'all'
-                                    ? 'No servers found matching your criteria'
-                                    : 'No servers available'}
-                            </p>
-                            <p className="text-xs text-zinc-500 mt-1">
-                                Try adjusting filters or search terms.
-                            </p>
+                        <div className="flex flex-col items-center justify-center h-64 text-center space-y-4">
+                            <div className="p-4 bg-accent/50 rounded-full">
+                                <Globe className="h-8 w-8 text-muted-foreground/50" />
+                            </div>
+                            <div className="max-w-xs mx-auto">
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    {searchQuery || selectedCategory !== 'all'
+                                        ? 'No servers found matching your criteria'
+                                        : 'No servers available'}
+                                </p>
+                                <p className="text-xs text-zinc-500 mt-2">
+                                    Try adjusting filters or check the official registry.
+                                </p>
+                            </div>
+                            <Button variant="outline" size="sm" asChild>
+                                <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener noreferrer">
+                                    Browse Official Registry <ExternalLink className="ml-2 h-3 w-3" />
+                                </a>
+                            </Button>
                         </div>
                     ) : (
                         <div className="flex flex-col gap-4">
-                            {/* Results count */}
-                            <p className="text-xs text-muted-foreground">
-                                Found {filteredServers.length} server{filteredServers.length !== 1 ? 's' : ''}
-                                {searchQuery && ` for "${searchQuery}"`}
-                            </p>
+                            {/* Results count & Submit CTA */}
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground">
+                                    Found {filteredServers.length} server{filteredServers.length !== 1 ? 's' : ''}
+                                    {searchQuery && ` for "${searchQuery}"`}
+                                </p>
+                                <a
+                                    href="https://github.com/Emeenent14/relay/issues/new?template=server_request.md"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                                >
+                                    Submit a Server <ExternalLink className="h-3 w-3" />
+                                </a>
+                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                 {filteredServers.map((server) => (

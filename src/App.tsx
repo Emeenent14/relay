@@ -14,6 +14,7 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useServerStore } from './stores/serverStore';
 
 import { ServerDetailsPage } from './components/features/servers/ServerDetailsPage';
+import { AppTour } from './components/features/onboarding/AppTour';
 
 function App() {
   const { currentPage } = useUIStore();
@@ -75,6 +76,9 @@ function App() {
         <AddServerDialog />
         <DeleteServerDialog />
         <ServerLogsDialog />
+
+        {/* Onboarding Tour */}
+        <AppTour />
 
         {/* Toast notifications */}
         <Toaster />

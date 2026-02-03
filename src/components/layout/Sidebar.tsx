@@ -67,6 +67,7 @@ export function Sidebar() {
                         {navItems.map((item) => (
                             <button
                                 key={item.id}
+                                id={`sidebar-${item.id}`}
                                 onClick={() => setCurrentPage(item.id)}
                                 className={cn(
                                     'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
@@ -84,6 +85,15 @@ export function Sidebar() {
 
                 {/* Footer */}
                 <div className="p-4 border-t border-border">
+                    <a
+                        href="https://github.com/Emeenent14/relay"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 mb-4 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors group"
+                    >
+                        <span className="text-sm">⭐️</span>
+                        <span className="text-xs font-medium">Star us on GitHub</span>
+                    </a>
                     <div className="flex items-center justify-center gap-3 mb-2">
                         {socialLinks.map((link) => (
                             <Tooltip key={link.href}>
