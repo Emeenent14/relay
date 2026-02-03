@@ -7,6 +7,7 @@ import { useServerStore } from '../../../stores/serverStore';
 import { useToast } from '../../ui/use-toast';
 import { ALL_SERVER_TEMPLATES, OFFICIAL_SERVERS, type ServerTemplate } from '../../../lib/serverCatalog';
 import { SERVER_CATEGORIES, type ServerCategory } from '../../../lib/constants';
+import { ServerIcon } from './ServerIcon';
 
 export function ServerCatalog() {
     const { createServer } = useServerStore();
@@ -167,9 +168,12 @@ function ServerCard({ server, onAdd, adding }: { server: ServerTemplate; onAdd: 
             </div>
 
             <div className="flex items-center gap-3 mb-2">
-                {/* Simple monochrome icon */}
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground font-medium text-sm">
-                    {server.name.charAt(0).toUpperCase()}
+                <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                    <ServerIcon
+                        name={server.name}
+                        category={server.category}
+                        className="w-8 h-8 text-muted-foreground/80"
+                    />
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -204,8 +208,12 @@ function ServerListItem({ server, onAdd, adding }: { server: ServerTemplate; onA
     return (
         <Card className="p-3 hover:border-foreground/20 transition-colors">
             <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground font-medium text-sm shrink-0">
-                    {server.name.charAt(0).toUpperCase()}
+                <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                    <ServerIcon
+                        name={server.name}
+                        category={server.category}
+                        className="w-6 h-6 text-muted-foreground/80"
+                    />
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

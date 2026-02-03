@@ -6,6 +6,15 @@ import { Input } from '../ui/input';
 import { Search, Download, ExternalLink, ShieldCheck, Globe, RefreshCw, Box, AlertCircle, TrendingUp } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { useUIStore } from '../../stores/uiStore';
+import { SERVER_CATEGORIES, type ServerCategory } from '../../lib/constants';
+import { ServerIcon } from './servers/ServerIcon';
+import { useToast } from '../ui/use-toast';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '../ui/tooltip';
 
 export function MarketplacePage() {
     const [servers, setServers] = useState<MarketplaceServer[]>([]);
@@ -13,7 +22,9 @@ export function MarketplacePage() {
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<ServerCategory | 'all'>('all');
     const { openAddDialog } = useUIStore();
+    const { toast } = useToast();
 
     // Debounce search query
     useEffect(() => {
@@ -29,11 +40,26 @@ export function MarketplacePage() {
             setIsLoading(true);
             setError(null);
             try {
-                const data = await marketplaceService.fetchServers(debouncedQuery, 1);
-                setServers(data);
+                const response = await marketplaceService.fetchServers(debouncedQuery, 1);
+                setServers(response.servers);
+
+                if (response.isFallback) {
+                    const msg = response.error || 'Connection failed';
+                    setError(`Offline Mode: ${msg}`);
+                    toast({
+                        title: 'Marketplace Offline',
+                        description: `Using local catalog. Error: ${msg}`,
+                        variant: 'destructive'
+                    });
+                } else {
+                    toast({
+                        title: 'Marketplace Debug',
+                        description: `Fetched: ${response.servers.length} online servers.`,
+                    });
+                }
             } catch (err) {
                 console.error('Failed to load marketplace:', err);
-                setError('Failed to load servers. Please check your connection.');
+                setError(String(err));
             } finally {
                 setIsLoading(false);
             }
@@ -44,6 +70,12 @@ export function MarketplacePage() {
     const handleInstall = (server: MarketplaceServer) => {
         openAddDialog(server);
     };
+
+    // Filter servers
+    const filteredServers = servers.filter(server => {
+        if (selectedCategory === 'all') return true;
+        return server.category.toLowerCase() === selectedCategory.toLowerCase();
+    });
 
     // Get source badge for server
     const getSourceBadge = (server: MarketplaceServer) => {
@@ -80,131 +112,162 @@ export function MarketplacePage() {
     };
 
     return (
-        <div className="h-full flex flex-col bg-background overflow-hidden">
-            {/* Header section */}
-            <div className="p-4 border-b border-border bg-card/30">
-                <div className="flex flex-col gap-1 mb-4">
-                    <h2 className="text-2xl font-bold tracking-tight">Marketplace</h2>
-                    <p className="text-xs text-muted-foreground">
-                        Discover 200+ MCP servers from Docker Hub and the official registry.
-                    </p>
-                </div>
-
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search servers..."
-                        className="pl-9 h-10 text-sm bg-background border-border"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-auto p-4 custom-scrollbar">
-                {isLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                            <div key={i} className="h-48 bg-muted/50 rounded-lg border border-border animate-pulse" />
-                        ))}
-                    </div>
-                ) : error ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-center">
-                        <AlertCircle className="h-12 w-12 text-destructive/50 mb-4" />
-                        <p className="text-sm font-medium text-destructive">{error}</p>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-4"
-                            onClick={() => setDebouncedQuery(debouncedQuery)}
-                        >
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Retry
-                        </Button>
-                    </div>
-                ) : servers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-center">
-                        <Globe className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                        <p className="text-sm font-medium text-muted-foreground">
-                            {searchQuery
-                                ? `No servers found for "${searchQuery}"`
-                                : 'No servers available'}
-                        </p>
-                        <p className="text-xs text-zinc-500 mt-1">
-                            {searchQuery
-                                ? 'Try a different search term.'
-                                : 'Unable to fetch servers from the registry. Please check your connection.'}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-4">
-                        {/* Results count */}
+        <TooltipProvider delayDuration={300}>
+            <div className="h-full flex flex-col bg-background overflow-hidden">
+                {/* Header section */}
+                <div className="p-4 border-b border-border bg-card/30 space-y-4">
+                    <div className="flex flex-col gap-1">
+                        <h2 className="text-2xl font-bold tracking-tight">Marketplace</h2>
                         <p className="text-xs text-muted-foreground">
-                            Found {servers.length} server{servers.length !== 1 ? 's' : ''}
-                            {searchQuery && ` for "${searchQuery}"`}
+                            Discover 200+ MCP servers from Docker Hub and the official registry.
                         </p>
+                    </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {servers.map((server) => (
-                                <Card key={server.id} className="group flex flex-col hover:border-primary/50 transition-all duration-200 shadow-none border-border/60 bg-card overflow-hidden h-full">
-                                    <div className="p-4 flex flex-col h-full">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="p-2 bg-primary/5 rounded-lg">
-                                                {server.iconUrl ? (
-                                                    <img src={server.iconUrl} alt={server.name} className="h-5 w-5 rounded-sm" />
-                                                ) : (
-                                                    <Globe className="h-5 w-5 text-primary/70" />
-                                                )}
-                                            </div>
-                                            <div className="flex gap-1">
-                                                {getSourceBadge(server)}
-                                            </div>
-                                        </div>
+                    <div className="flex flex-col gap-3">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search servers..."
+                                className="pl-9 h-10 text-sm bg-background border-border"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
 
-                                        <div className="mb-2">
-                                            <h3 className="text-sm font-semibold truncate leading-none mb-1">{server.name}</h3>
-                                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                                by <span className="text-foreground/80">{server.author}</span>
-                                            </span>
-                                        </div>
-
-                                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2 leading-normal flex-1">
-                                            {server.description || 'No description available'}
-                                        </p>
-
-                                        {/* Package name and stats */}
-                                        <div className="flex items-center justify-between mb-3">
-                                            <p className="text-[10px] text-zinc-500 font-mono truncate">
-                                                {server.packageName}
-                                            </p>
-                                            {server.pullCount && server.pullCount > 0 && (
-                                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                                    <TrendingUp className="h-2.5 w-2.5" />
-                                                    {formatPullCount(server.pullCount)}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <div className="flex items-center gap-2 mt-auto">
-                                            <Button size="sm" className="h-8 flex-1 text-xs" onClick={() => handleInstall(server)}>
-                                                <Download className="h-3.5 w-3.5 mr-1.5" />
-                                                Install
-                                            </Button>
-                                            {server.sourceUrl && (
-                                                <Button variant="outline" size="icon" className="h-8 w-8" asChild>
-                                                    <a href={server.sourceUrl} target="_blank" rel="noopener noreferrer">
-                                                        <ExternalLink className="h-3.5 w-3.5" />
-                                                    </a>
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </Card>
+                        {/* Category Filter */}
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                            <Button
+                                variant={selectedCategory === 'all' ? "secondary" : "ghost"}
+                                size="sm"
+                                className="h-7 text-xs whitespace-nowrap"
+                                onClick={() => setSelectedCategory('all')}
+                            >
+                                All
+                            </Button>
+                            {SERVER_CATEGORIES.map(cat => (
+                                <Button
+                                    key={cat.value}
+                                    variant={selectedCategory === cat.value ? "secondary" : "ghost"}
+                                    size="sm"
+                                    className="h-7 text-xs whitespace-nowrap"
+                                    onClick={() => setSelectedCategory(cat.value)}
+                                >
+                                    {cat.label}
+                                </Button>
                             ))}
                         </div>
                     </div>
-                )}
+                </div>
+
+                <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+                    {isLoading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                                <div key={i} className="h-48 bg-muted/50 rounded-lg border border-border animate-pulse" />
+                            ))}
+                        </div>
+                    ) : error ? (
+                        <div className="flex flex-col items-center justify-center h-64 text-center">
+                            <AlertCircle className="h-12 w-12 text-destructive/50 mb-4" />
+                            <p className="text-sm font-medium text-destructive">{error}</p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-4"
+                                onClick={() => setDebouncedQuery(debouncedQuery)}
+                            >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Retry
+                            </Button>
+                        </div>
+                    ) : filteredServers.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-64 text-center">
+                            <Globe className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                            <p className="text-sm font-medium text-muted-foreground">
+                                {searchQuery || selectedCategory !== 'all'
+                                    ? 'No servers found matching your criteria'
+                                    : 'No servers available'}
+                            </p>
+                            <p className="text-xs text-zinc-500 mt-1">
+                                Try adjusting filters or search terms.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            {/* Results count */}
+                            <p className="text-xs text-muted-foreground">
+                                Found {filteredServers.length} server{filteredServers.length !== 1 ? 's' : ''}
+                                {searchQuery && ` for "${searchQuery}"`}
+                            </p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {filteredServers.map((server) => (
+                                    <Card key={server.id} className="group flex flex-col hover:border-primary/50 transition-all duration-200 shadow-none border-border/60 bg-card overflow-hidden h-full">
+                                        <div className="p-4 flex flex-col h-full">
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="p-2 bg-primary/5 rounded-lg shrink-0">
+                                                    <ServerIcon
+                                                        name={server.name}
+                                                        category={server.category}
+                                                        iconUrl={server.iconUrl}
+                                                        className="w-5 h-5 text-primary/70"
+                                                    />
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    {getSourceBadge(server)}
+                                                </div>
+                                            </div>
+
+                                            <div className="mb-2">
+                                                <h3 className="text-sm font-semibold truncate leading-none mb-1">{server.name}</h3>
+                                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                    by <span className="text-foreground/80">{server.author}</span>
+                                                </span>
+                                            </div>
+
+                                            <p className="text-xs text-muted-foreground line-clamp-2 mb-2 leading-normal flex-1">
+                                                {server.description || 'No description available'}
+                                            </p>
+
+                                            {/* Package name and stats */}
+                                            <div className="flex items-center justify-between mb-3">
+                                                <p className="text-[10px] text-zinc-500 font-mono truncate">
+                                                    {server.packageName}
+                                                </p>
+                                                {server.pullCount && server.pullCount > 0 && (
+                                                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                                        <TrendingUp className="h-2.5 w-2.5" />
+                                                        {formatPullCount(server.pullCount)}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-2 mt-auto">
+                                                <Button size="sm" className="h-8 flex-1 text-xs" onClick={() => handleInstall(server)}>
+                                                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                                                    Install
+                                                </Button>
+                                                {server.sourceUrl && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                                                                <a href={server.sourceUrl} target="_blank" rel="noopener noreferrer">
+                                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                                </a>
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>View source</TooltipContent>
+                                                    </Tooltip>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
+        </TooltipProvider>
     );
 }

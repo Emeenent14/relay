@@ -67,7 +67,11 @@ struct RegistryServer {
 /// Fetch MCP servers from Docker Hub and Registry
 #[command]
 pub async fn fetch_marketplace_servers(query: String) -> Result<Vec<MarketplaceServer>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
     
     // Clone for parallel execution
     let query1 = query.clone();
@@ -81,15 +85,29 @@ pub async fn fetch_marketplace_servers(query: String) -> Result<Vec<MarketplaceS
     
     let (docker_result, registry_result) = tokio::join!(docker_future, registry_future);
     
+    let docker_err = docker_result.as_ref().err().map(|e| e.to_string());
     let mut docker_servers = docker_result.unwrap_or_else(|e| {
         eprintln!("Docker Hub fetch error: {}", e);
         vec![]
     });
     
+    let registry_err = registry_result.as_ref().err().map(|e| e.to_string());
     let registry_servers = registry_result.unwrap_or_else(|e| {
         eprintln!("Registry fetch error: {}", e);
         vec![]
     });
+
+    if docker_servers.is_empty() && registry_servers.is_empty() {
+        if let Some(e1) = docker_err {
+            if let Some(e2) = registry_err {
+                 return Err(format!("Docker: {}; Registry: {}", e1, e2));
+            }
+            return Err(format!("Docker failed: {}", e1));
+        }
+        if let Some(e2) = registry_err {
+            return Err(format!("Registry failed: {}", e2));
+        }
+    }
     
     // Merge: Docker first, then registry (avoiding duplicates)
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -120,6 +138,8 @@ async fn fetch_from_docker_hub(client: reqwest::Client, query: String) -> Result
     let mut next_url: Option<String> = Some(format!("{}?page_size=100", DOCKER_HUB_API));
     let mut page_count = 0;
     
+    let user_agent = "Relay/0.1.0";
+    
     while let Some(url) = next_url {
         if page_count >= 3 {
             break;
@@ -128,12 +148,13 @@ async fn fetch_from_docker_hub(client: reqwest::Client, query: String) -> Result
         let response = client
             .get(&url)
             .header("Accept", "application/json")
+            .header("User-Agent", user_agent)
             .send()
             .await
             .map_err(|e| format!("Docker Hub request failed: {}", e))?;
         
         if !response.status().is_success() {
-            break;
+            return Err(format!("Docker Hub error: Status {}", response.status()));
         }
         
         let data: DockerHubResponse = response
@@ -191,6 +212,8 @@ async fn fetch_from_docker_hub(client: reqwest::Client, query: String) -> Result
 }
 
 async fn fetch_from_registry(client: reqwest::Client, query: String) -> Result<Vec<MarketplaceServer>, String> {
+    let user_agent = "Relay/0.1.0";
+
     let url = if query.is_empty() {
         format!("{}?limit=100", REGISTRY_API)
     } else {
@@ -200,12 +223,13 @@ async fn fetch_from_registry(client: reqwest::Client, query: String) -> Result<V
     let response = client
         .get(&url)
         .header("Accept", "application/json")
+        .header("User-Agent", user_agent)
         .send()
         .await
         .map_err(|e| format!("Registry request failed: {}", e))?;
     
     if !response.status().is_success() {
-        return Ok(vec![]);
+        return Err(format!("Registry error: Status {}", response.status()));
     }
     
     let data: RegistryResponse = response

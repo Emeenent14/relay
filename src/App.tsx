@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
+import { LoadingScreen } from './components/layout/LoadingScreen';
 import { CatalogPage } from './components/features/CatalogPage';
 import { MarketplacePage } from './components/features/MarketplacePage';
 import { InspectorPage } from './components/features/InspectorPage';
@@ -17,38 +18,69 @@ function App() {
   const { currentPage } = useUIStore();
   const { fetchSettings } = useSettingsStore();
   const { syncServers } = useServerStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load settings (and apply theme) on mount
   useEffect(() => {
-    fetchSettings();
-    syncServers();
-    // Set dark mode by default
-    document.documentElement.classList.add('dark');
+    const initialize = async () => {
+      await fetchSettings();
+      await syncServers();
+      // Set dark mode by default
+      document.documentElement.classList.add('dark');
+      setIsInitialized(true);
+    };
+    initialize();
   }, [fetchSettings, syncServers]);
 
+  const handleLoadComplete = () => {
+    if (isInitialized) {
+      setIsLoading(false);
+    }
+  };
+
+  // Wait for both loading animation and initialization
+  useEffect(() => {
+    if (isInitialized && !isLoading) {
+      // App is ready
+    }
+  }, [isInitialized, isLoading]);
+
   return (
-    <div className="flex h-screen bg-background text-foreground">
-      {/* Sidebar */}
-      <Sidebar />
+    <>
+      {/* Loading Screen */}
+      {isLoading && (
+        <LoadingScreen
+          onLoadComplete={handleLoadComplete}
+          minDisplayTime={2000}
+        />
+      )}
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-hidden">
-        {currentPage === 'servers' && <CatalogPage />}
-        {currentPage === 'marketplace' && <MarketplacePage />}
-        {currentPage === 'inspector' && <InspectorPage />}
-        {currentPage === 'settings' && <SettingsPage />}
-      </main>
+      {/* Main App - rendered but hidden during loading */}
+      <div className={`flex h-screen bg-background text-foreground transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}>
+        {/* Sidebar */}
+        <Sidebar />
 
-      {/* Dialogs */}
-      <AddServerDialog />
-      <EditServerDialog />
-      <DeleteServerDialog />
-      <ServerLogsDialog />
+        {/* Main Content */}
+        <main className="flex-1 overflow-hidden">
+          {currentPage === 'servers' && <CatalogPage />}
+          {currentPage === 'marketplace' && <MarketplacePage />}
+          {currentPage === 'inspector' && <InspectorPage />}
+          {currentPage === 'settings' && <SettingsPage />}
+        </main>
 
-      {/* Toast notifications */}
-      <Toaster />
-    </div>
+        {/* Dialogs */}
+        <AddServerDialog />
+        <EditServerDialog />
+        <DeleteServerDialog />
+        <ServerLogsDialog />
+
+        {/* Toast notifications */}
+        <Toaster />
+      </div>
+    </>
   );
 }
 
 export default App;
+
