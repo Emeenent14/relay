@@ -26,7 +26,7 @@ import {
 
 export function MyServersList() {
     const { servers, loading, fetchServers, toggleServer } = useServerStore();
-    const { openAddDialog, openEditDialog, openDeleteDialog, openLogsDialog } = useUIStore();
+    const { openAddDialog, viewServer, openDeleteDialog, openLogsDialog } = useUIStore();
     const { toast } = useToast();
     const supportedClients = getSupportedClients();
 
@@ -156,9 +156,9 @@ export function MyServersList() {
                                         )} />
 
                                         {/* Info */}
-                                        <div className="flex-1 min-w-0">
+                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => viewServer(server.id)}>
                                             <div className="flex items-center gap-2">
-                                                <h3 className="font-medium">{server.name}</h3>
+                                                <h3 className="font-medium hover:underline">{server.name}</h3>
                                                 {server.category && (
                                                     <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-medium uppercase tracking-wider">
                                                         {server.category}
@@ -187,11 +187,11 @@ export function MyServersList() {
                                             </Tooltip>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(server)}>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => viewServer(server.id)}>
                                                         <Pencil className="h-4 w-4" />
                                                     </Button>
                                                 </TooltipTrigger>
-                                                <TooltipContent>Edit server</TooltipContent>
+                                                <TooltipContent>Manage server</TooltipContent>
                                             </Tooltip>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>

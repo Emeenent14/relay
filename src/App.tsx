@@ -6,13 +6,14 @@ import { MarketplacePage } from './components/features/MarketplacePage';
 import { InspectorPage } from './components/features/InspectorPage';
 import { SettingsPage } from './components/features/settings/SettingsPage';
 import { AddServerDialog } from './components/features/servers/AddServerDialog';
-import { EditServerDialog } from './components/features/servers/EditServerDialog';
 import { DeleteServerDialog } from './components/features/servers/DeleteServerDialog';
 import { ServerLogsDialog } from './components/features/servers/ServerLogsDialog';
 import { Toaster } from './components/ui/toaster';
 import { useUIStore } from './stores/uiStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useServerStore } from './stores/serverStore';
+
+import { ServerDetailsPage } from './components/features/servers/ServerDetailsPage';
 
 function App() {
   const { currentPage } = useUIStore();
@@ -67,11 +68,11 @@ function App() {
           {currentPage === 'marketplace' && <MarketplacePage />}
           {currentPage === 'inspector' && <InspectorPage />}
           {currentPage === 'settings' && <SettingsPage />}
+          {currentPage === 'server-details' && <ServerDetailsPage />}
         </main>
 
         {/* Dialogs */}
         <AddServerDialog />
-        <EditServerDialog />
         <DeleteServerDialog />
         <ServerLogsDialog />
 

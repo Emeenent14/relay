@@ -2,18 +2,19 @@ import { create } from 'zustand';
 import type { Server } from '../types/server';
 import type { MarketplaceServer } from '../services/marketplace';
 
-type DialogType = 'add' | 'edit' | 'delete' | 'logs' | null;
+type DialogType = 'add' | 'delete' | 'logs' | null;
 
 interface UIState {
-    currentPage: 'servers' | 'inspector' | 'marketplace' | 'settings';
+    currentPage: 'servers' | 'inspector' | 'marketplace' | 'settings' | 'server-details';
     activeDialog: DialogType;
     dialogServer: Server | null;
+    selectedServerId: string | null;
     marketplaceData: MarketplaceServer | null;
 
     // Actions
-    setCurrentPage: (page: 'servers' | 'inspector' | 'marketplace' | 'settings') => void;
+    setCurrentPage: (page: 'servers' | 'inspector' | 'marketplace' | 'settings' | 'server-details') => void;
+    viewServer: (serverId: string) => void;
     openAddDialog: (data?: MarketplaceServer) => void;
-    openEditDialog: (server: Server) => void;
     openDeleteDialog: (server: Server) => void;
     openLogsDialog: (server: Server) => void;
     closeDialog: () => void;
@@ -23,18 +24,23 @@ export const useUIStore = create<UIState>((set) => ({
     currentPage: 'servers',
     activeDialog: null,
     dialogServer: null,
+    selectedServerId: null,
     marketplaceData: null,
 
     setCurrentPage: (page) => {
         set({ currentPage: page });
     },
 
-    openAddDialog: (data?: MarketplaceServer) => {
-        set({ activeDialog: 'add', dialogServer: null, marketplaceData: data || null });
+    viewServer: (serverId: string) => {
+        set({
+            currentPage: 'server-details',
+            selectedServerId: serverId,
+            activeDialog: null // Close any open dialogs
+        });
     },
 
-    openEditDialog: (server: Server) => {
-        set({ activeDialog: 'edit', dialogServer: server, marketplaceData: null });
+    openAddDialog: (data?: MarketplaceServer) => {
+        set({ activeDialog: 'add', dialogServer: null, marketplaceData: data || null });
     },
 
     openDeleteDialog: (server: Server) => {
