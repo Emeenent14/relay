@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Plus, Upload, RefreshCw, Pencil, Trash2, Terminal } from 'lucide-react';
+import { Plus, Upload, RefreshCw, Pencil, Trash2, Terminal, ChevronDown } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Switch } from '../../ui/switch';
@@ -8,21 +8,50 @@ import { useUIStore } from '../../../stores/uiStore';
 import { useToast } from '../../ui/use-toast';
 import { configApi } from '../../../lib/tauri';
 import { cn } from '../../../lib/utils';
+import { getSupportedClients } from '../../../lib/clientCatalog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+    DropdownMenuLabel,
+} from '../../ui/dropdown-menu';
 
 export function MyServersList() {
     const { servers, loading, fetchServers, toggleServer } = useServerStore();
     const { openAddDialog, openEditDialog, openDeleteDialog, openLogsDialog } = useUIStore();
     const { toast } = useToast();
+    const supportedClients = getSupportedClients();
 
     useEffect(() => {
         fetchServers();
     }, [fetchServers]);
 
-    const handleExport = async () => {
+    const handleExportAll = async () => {
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const client of supportedClients) {
+            try {
+                await configApi.exportToClient(client.id);
+                successCount++;
+            } catch {
+                failCount++;
+            }
+        }
+
+        toast({
+            title: 'Exported to All Clients',
+            description: `${successCount} succeeded, ${failCount} failed`,
+        });
+    };
+
+    const handleExport = async (clientId: string, clientName: string) => {
         try {
-            const path = await configApi.exportToClaude();
+            const path = await configApi.exportToClient(clientId);
             toast({
-                title: 'Config Exported',
+                title: `Exported to ${clientName}`,
                 description: `Saved to ${path}`,
             });
         } catch (error) {
@@ -57,15 +86,38 @@ export function MyServersList() {
                         <Plus className="h-4 w-4 mr-2" />
                         Add Server
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handleExport} disabled={enabledCount === 0}>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Export to Claude
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={enabledCount === 0}>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Export
+                                <ChevronDown className="h-3 w-3 ml-1" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuItem onClick={handleExportAll} className="font-medium">
+                                Export to All Clients
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-xs text-muted-foreground">
+                                Export to specific client
+                            </DropdownMenuLabel>
+                            {supportedClients.map((client) => (
+                                <DropdownMenuItem
+                                    key={client.id}
+                                    onClick={() => handleExport(client.id, client.name)}
+                                >
+                                    {client.name}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => fetchServers()} disabled={loading}>
                     <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
                 </Button>
             </div>
+
 
             {/* Server list */}
             <div className="flex-1 overflow-auto p-4">

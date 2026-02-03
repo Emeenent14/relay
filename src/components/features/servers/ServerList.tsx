@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Upload, RefreshCw, Server, Library } from 'lucide-react';
+import { Plus, Upload, RefreshCw, Server, Library, ChevronDown } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { ServerCard } from './ServerCard';
 import { ServerCatalogDialog } from './ServerCatalogDialog';
@@ -7,24 +7,52 @@ import { useServerStore } from '../../../stores/serverStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useToast } from '../../ui/use-toast';
 import { configApi } from '../../../lib/tauri';
+import { getSupportedClients } from '../../../lib/clientCatalog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+    DropdownMenuLabel,
+} from '../../ui/dropdown-menu';
 
 export function ServerList() {
     const { servers, loading, error, fetchServers } = useServerStore();
     const { openAddDialog } = useUIStore();
     const { toast } = useToast();
     const [catalogOpen, setCatalogOpen] = useState(false);
+    const supportedClients = getSupportedClients();
 
     useEffect(() => {
         fetchServers();
     }, [fetchServers]);
 
-    const handleExport = async () => {
+    const handleExportAll = async () => {
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const client of supportedClients) {
+            try {
+                await configApi.exportToClient(client.id);
+                successCount++;
+            } catch {
+                failCount++;
+            }
+        }
+
+        toast({
+            title: 'Exported to All Clients',
+            description: `${successCount} succeeded, ${failCount} failed`,
+        });
+    };
+
+    const handleExport = async (clientId: string, clientName: string) => {
         try {
-            const path = await configApi.exportToClaude();
+            const path = await configApi.exportToClient(clientId);
             toast({
-                title: 'Config Exported',
+                title: `Exported to ${clientName}`,
                 description: `Saved to ${path}`,
-                variant: 'success',
             });
         } catch (error) {
             toast({
@@ -59,15 +87,32 @@ export function ServerList() {
                         Refresh
                     </Button>
 
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleExport}
-                        disabled={enabledCount === 0}
-                    >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Export to Claude
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={enabledCount === 0}>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Export
+                                <ChevronDown className="h-3 w-3 ml-1" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={handleExportAll} className="font-medium">
+                                Export to All Clients
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-xs text-muted-foreground">
+                                Export to specific client
+                            </DropdownMenuLabel>
+                            {supportedClients.map((client) => (
+                                <DropdownMenuItem
+                                    key={client.id}
+                                    onClick={() => handleExport(client.id, client.name)}
+                                >
+                                    {client.name}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
 
                     <Button
                         variant="outline"
