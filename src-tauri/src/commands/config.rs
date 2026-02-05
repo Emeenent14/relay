@@ -114,7 +114,7 @@ pub async fn export_to_claude(app: AppHandle, state: State<'_, AppState>) -> Res
 #[tauri::command]
 pub async fn export_config(
     state: State<'_, AppState>,
-    client_id: String,
+    _client_id: String,
 ) -> Result<String, String> {
     let db = state.db.lock().await;
 
@@ -168,7 +168,6 @@ pub async fn read_claude_config() -> Result<Value, String> {
 
 #[tauri::command]
 pub fn expand_path(path: String) -> Result<String, String> {
-    use std::path::PathBuf;
 
     let expanded = if path.starts_with("~") {
         // Expand tilde to home directory

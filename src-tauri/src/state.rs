@@ -6,7 +6,7 @@ use tokio::process::Child;
 
 pub struct ServerProcess {
     pub child: Child,
-    pub status: String,
+    pub _status: String,
 }
 
 pub struct AppState {

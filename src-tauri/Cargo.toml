@@ -1,8 +1,8 @@
 [package]
 name = "relay"
-version = "0.1.0"
+version = "0.1.1"
 description = "Visual MCP Server Manager"
-authors = ["Your Name"]
+authors = ["Franklin O. <emeenent14@gmail.com>"]
 edition = "2021"
 
 [build-dependencies]

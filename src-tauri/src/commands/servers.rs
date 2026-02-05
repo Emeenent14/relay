@@ -1,5 +1,5 @@
 use tauri::{State, AppHandle};
-use crate::state::{AppState, ServerProcess};
+use crate::state::AppState;
 use crate::models::server::{Server, CreateServerInput, UpdateServerInput};
 use crate::utils::process::spawn_server;
 use crate::utils::secrets::SecretManager;

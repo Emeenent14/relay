@@ -39,9 +39,7 @@ export const marketplaceService = {
         }
 
         try {
-            console.log('Fetching marketplace servers via Tauri:', query);
             const servers = await invoke<MarketplaceServer[]>('fetch_marketplace_servers', { query });
-            console.log(`Fetched ${servers.length} marketplace servers`);
 
             if (servers.length === 0) {
                 throw new Error('No servers returned from backend');
