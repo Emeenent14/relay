@@ -55,6 +55,8 @@ async fn main() {
             commands::mcp::call_server_tool,
             // Marketplace commands
             commands::marketplace::fetch_marketplace_servers,
+            // Update commands
+            commands::updates::check_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

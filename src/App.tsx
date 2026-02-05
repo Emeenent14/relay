@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-shell';
+import { toast } from './components/ui/use-toast';
+import { ToastAction } from './components/ui/toast';
 import { Sidebar } from './components/layout/Sidebar';
 import { LoadingScreen } from './components/layout/LoadingScreen';
 import { CatalogPage } from './components/features/CatalogPage';
@@ -31,6 +35,25 @@ function App() {
       // Set dark mode by default
       document.documentElement.classList.add('dark');
       setIsInitialized(true);
+
+      // Check for updates
+      try {
+        const update = await invoke<{ update_available: boolean; remote_version: string; url: string }>('check_update');
+        if (update.update_available) {
+          toast({
+            title: "Update Available",
+            description: `A new version (v${update.remote_version}) is available.`,
+            action: (
+              <ToastAction altText="Download" onClick={() => open(update.url)}>
+                Download
+              </ToastAction>
+            ),
+            duration: 10000,
+          });
+        }
+      } catch (e) {
+        console.error('Failed to check for updates', e);
+      }
     };
     initialize();
   }, [fetchSettings, syncServers]);
