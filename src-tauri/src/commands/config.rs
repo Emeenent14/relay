@@ -151,6 +151,145 @@ pub async fn export_config(
 }
 
 #[tauri::command]
+pub async fn export_config_to_path(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    key: String,
+    path: String,
+) -> Result<String, String> {
+    let db = state.db.lock().await;
+
+    // 1. Get enabled servers
+    let servers = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE enabled = 1")
+        .fetch_all(&*db)
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
+
+    // 2. Prepare relay.json content (list of servers)
+    let mut relay_servers = Vec::new();
+    for server in servers {
+        let args: Vec<String> = serde_json::from_str(&server.args)
+            .unwrap_or_default();
+        let env: HashMap<String, String> = serde_json::from_str(&server.env)
+            .unwrap_or_default();
+
+        let mut server_json = json!({
+            "id": server.id,
+            "name": server.name,
+            "command": server.command,
+            "args": args,
+        });
+
+        if !env.is_empty() {
+            server_json["env"] = json!(env);
+        }
+        
+        relay_servers.push(server_json);
+    }
+
+    let relay_config = json!({
+        "servers": relay_servers
+    });
+
+    // 3. Write relay.json to persistent AppData
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    if !app_data_dir.exists() {
+        std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
+    }
+    
+    let relay_config_path = app_data_dir.join("relay.json");
+    
+    std::fs::write(&relay_config_path, serde_json::to_string_pretty(&relay_config).unwrap())
+        .map_err(|e| format!("Failed to write relay config: {}", e))?;
+
+    // 4. Locate Gateway Script (dist/gateway.js)
+    let cwd = std::env::current_dir().unwrap();
+    let mut gateway_script_path = cwd.join("dist").join("gateway.js");
+
+    // Fallback: check parent dir if running from src-tauri
+    if !gateway_script_path.exists() {
+        if let Some(parent) = cwd.parent() {
+            let parent_path = parent.join("dist").join("gateway.js");
+            if parent_path.exists() {
+                gateway_script_path = parent_path;
+            }
+        }
+    }
+
+    if !gateway_script_path.exists() {
+        return Err(format!("Gateway script not found at {}. Please run 'npm run build:gateway'.", gateway_script_path.display()));
+    }
+
+    // 5. Read Client Config File
+    let path_buf = std::path::PathBuf::from(&path);
+    
+    if let Some(parent) = path_buf.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create directory: {}", e))?;
+        }
+    }
+
+    let mut config_json: Value = if path_buf.exists() {
+        let content = std::fs::read_to_string(&path_buf)
+            .map_err(|e| format!("Failed to read config file: {}", e))?;
+        serde_json::from_str(&content)
+            .unwrap_or(json!({}))
+    } else {
+        json!({})
+    };
+
+    // 6. Construct the 'Relay Gateway' Config
+    let gateway_config = json!({
+        "command": "node",
+        "args": [
+            gateway_script_path.to_string_lossy(),
+        ],
+        "env": {
+            "RELAY_CONFIG_PATH": relay_config_path.to_string_lossy()
+        }
+    });
+
+    // 7. Update the specific key in Client Config
+    let parts: Vec<&str> = key.split('.').collect();
+    let mut current = &mut config_json;
+
+    // 7. Update the specific key in Client Config
+    let parts: Vec<&str> = key.split('.').collect();
+    let mut current = &mut config_json;
+
+    // Navigate to the target object (e.g. root["mcpServers"])
+    for part in parts {
+        if !current.get(part).map(|v| v.is_object()).unwrap_or(false) {
+            // If doesn't exist or isn't object, create it
+            if let Some(obj) = current.as_object_mut() {
+                obj.insert(part.to_string(), json!({}));
+            } else {
+                *current = json!({ part.to_string(): {} });
+            }
+        }
+        // Navigate down
+        current = current.get_mut(part).unwrap();
+    }
+
+    // Now current points to the target container (e.g. mcpServers object)
+    if let Some(obj) = current.as_object_mut() {
+        obj.insert("Relay Gateway".to_string(), gateway_config);
+    } else {
+        return Err(format!("Target path '{}' is not an object", key));
+    }
+
+    // 8. Write Client Config Back
+    let new_content = serde_json::to_string_pretty(&config_json)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+    
+    std::fs::write(&path_buf, new_content)
+        .map_err(|e| format!("Failed to write config file: {}", e))?;
+
+    Ok(path)
+}
+
+#[tauri::command]
 pub async fn read_claude_config() -> Result<Value, String> {
     let config_path = get_claude_config_path()
         .ok_or_else(|| "Could not determine Claude config path".to_string())?;

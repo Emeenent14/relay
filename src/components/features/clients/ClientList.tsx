@@ -3,7 +3,7 @@ import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { useToast } from '../../ui/use-toast';
 import { configApi } from '../../../lib/tauri';
-import { MCP_CLIENTS, type ClientConfig } from '../../../lib/clientCatalog';
+import { MCP_CLIENTS, type ClientConfig, getClientConfigPath, resolveConfigPath } from '../../../lib/clientCatalog';
 import { ConnectCustomDialog } from './ConnectCustomDialog';
 import {
     MessageSquare,
@@ -99,11 +99,22 @@ function ClientCard({ client }: { client: ClientConfig }) {
     const handleConnect = async (e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent card expansion if we were clicking card
         try {
-            const path = await configApi.exportToClient(client.id);
+            // 1. Get abstract path
+            const abstractPath = getClientConfigPath(client);
+            if (!abstractPath) {
+                throw new Error("Configuration path not defined for this platform");
+            }
+
+            // 2. Resolve to real path
+            const resolvedPath = await resolveConfigPath(abstractPath);
+
+            // 3. Export config to path
+            await configApi.exportToPath(resolvedPath, client.mcpConfigKey);
+
             setIsConnected(true);
             toast({
                 title: 'Connected successfully',
-                description: `Configuration exported to ${path}`,
+                description: `Configuration exported to ${resolvedPath}`,
             });
 
             // Reset state after 3 seconds

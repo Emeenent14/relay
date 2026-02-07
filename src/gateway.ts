@@ -1,7 +1,7 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { Server } from "@modelcontextprotocol/sdk/server";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { Client } from "@modelcontextprotocol/sdk/client";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import fs from 'fs';
 import path from 'path';
@@ -51,6 +51,21 @@ async function main() {
     // Initialize sub-servers
     for (const srv of config.servers) {
         if (srv.disabled) continue;
+
+        // Auto-configure File System if args are missing permissions
+        if (srv.name === 'File System') {
+            const hasPath = srv.args.some(arg =>
+                !arg.startsWith('-') &&
+                !arg.startsWith('@')
+            );
+
+            if (!hasPath) {
+                const isWindows = process.platform === 'win32';
+                const root = isWindows ? 'C:\\' : '/';
+                console.error(`[Relay] Auto-configuring File System access to ${root}`);
+                srv.args.push(root);
+            }
+        }
 
         try {
             console.error(`[Relay] Connecting to ${srv.name}...`);

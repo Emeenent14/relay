@@ -41,6 +41,9 @@ export const configApi = {
     /** Export config for a specific client */
     exportToClient: (clientId: string) => invoke<string>('export_config', { clientId }),
 
+    /** Export config to a specific path */
+    exportToPath: (path: string, key: string) => invoke<string>('export_config_to_path', { path, key }),
+
     /** Read current Claude Desktop config */
     readClaude: () => invoke<Record<string, unknown>>('read_claude_config'),
 };

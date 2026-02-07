@@ -59,7 +59,7 @@ function ConfigFieldInput({
                     type={field.type === 'password' && !showPassword ? 'password' : 'text'}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
-                    placeholder={field.placeholder || (field.default ? `Default: ${field.default}` : '')}
+                    placeholder={field.placeholder || (value ? `Default: ${value}` : (field.default ? `Default: ${field.default}` : ''))}
                     className="pr-10"
                 />
 

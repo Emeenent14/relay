@@ -68,9 +68,9 @@ export const REFERENCE_SERVERS: ServerTemplate[] = [
                 key: 'args', // Special key to append to args
                 label: 'Allowed Directories',
                 type: 'path',
-                default: '~',
+                default: '%OS_ROOT%',
                 required: true,
-                description: 'Directories the server is allowed to access (~ for home directory)',
+                description: 'Directories the server is allowed to access (default: all available)',
             }
         ]
     },

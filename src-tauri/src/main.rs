@@ -44,6 +44,7 @@ async fn main() {
             commands::config::export_to_claude,
             commands::config::export_config,
             commands::config::read_claude_config,
+            commands::config::export_config_to_path,
             commands::config::expand_path,
             // Settings commands
             commands::settings::get_settings,

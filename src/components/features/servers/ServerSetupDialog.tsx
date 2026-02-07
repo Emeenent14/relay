@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -28,17 +28,27 @@ export function ServerSetupDialog({ template, open, onOpenChange, onSuccess }: S
 
     if (!template) return null;
 
-    // Initialize defaults
-    // useEffect(() => {
-    //     if (template?.configSchema) {
-    //         const defaults: Record<string, string> = {};
-    //         template.configSchema.forEach(field => {
-    //             if (field.default) defaults[field.key] = field.default;
-    //         });
-    //         setConfigValues(defaults);
-    //     }
-    // }, [template]);
-    // Effect seems brittle if template changes, better to do lazy init or just handle defaults in render/submit
+    // Initialize defaults with dynamic resolution
+    useEffect(() => {
+        if (template?.configSchema) {
+            const defaults: Record<string, string> = {};
+
+            // Minimal OS detection for webview
+            const isWindows = navigator.platform.indexOf('Win') > -1;
+            const osRoot = isWindows ? 'C:/' : '/';
+
+            template.configSchema.forEach(field => {
+                if (field.default) {
+                    if (field.default === '%OS_ROOT%') {
+                        defaults[field.key] = osRoot;
+                    } else {
+                        defaults[field.key] = field.default;
+                    }
+                }
+            });
+            setConfigValues(defaults);
+        }
+    }, [template]);
 
     const handleChange = (key: string, value: string) => {
         setConfigValues(prev => ({ ...prev, [key]: value }));
