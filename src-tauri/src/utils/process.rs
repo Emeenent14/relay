@@ -1,5 +1,7 @@
 use tokio::process::Command;
 use std::process::Stdio;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tauri::{AppHandle, Emitter};
 use crate::state::ServerProcess;
@@ -21,9 +23,15 @@ pub async fn spawn_server(
             envs.insert(key, value);
         }
     }
+
+    #[cfg(windows)]
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
     let mut command_builder = if cfg!(windows) {
         let mut cmd = Command::new("cmd");
         cmd.arg("/C").arg(&command);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
         cmd
     } else {
         Command::new(&command)

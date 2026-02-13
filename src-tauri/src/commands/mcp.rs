@@ -7,6 +7,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
 use tokio::process::ChildStdout;
 use tokio::time::{timeout, Duration};
 use serde_json::{json, Value};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 /// Helper function to read a valid JSON-RPC response, skipping any non-JSON startup messages
 async fn read_json_response(
@@ -68,8 +70,12 @@ pub async fn list_server_tools(
     let envs: std::collections::HashMap<String, String> = serde_json::from_str(&server.env).unwrap_or_default();
 
     let mut command_builder = if cfg!(windows) {
+        #[cfg(windows)]
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
         let mut cmd = Command::new("cmd");
         cmd.arg("/C").arg(&server.command);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
         cmd
     } else {
         Command::new(&server.command)
@@ -153,8 +159,12 @@ pub async fn call_server_tool(
     let envs: std::collections::HashMap<String, String> = serde_json::from_str(&server.env).unwrap_or_default();
 
     let mut command_builder = if cfg!(windows) {
+        #[cfg(windows)]
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
         let mut cmd = Command::new("cmd");
         cmd.arg("/C").arg(&server.command);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
         cmd
     } else {
         Command::new(&server.command)
