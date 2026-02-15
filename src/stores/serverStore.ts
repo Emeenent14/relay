@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { serverApi } from '../lib/tauri';
-import type { Server, CreateServerInput, UpdateServerInput } from '../types/server';
+import type { ContextUsage, Server, CreateServerInput, UpdateServerInput } from '../types/server';
 import { listen } from '@tauri-apps/api/event';
 
 interface LogEntry {
@@ -14,6 +14,7 @@ interface LogEntry {
 interface ServerState {
     servers: Server[];
     logs: Record<string, LogEntry[]>;
+    contextUsage: Record<string, ContextUsage>;
     loading: boolean;
     error: string | null;
     selectedServerId: string | null;
@@ -29,11 +30,13 @@ interface ServerState {
     clearError: () => void;
     addLog: (log: LogEntry) => void;
     clearLogs: (serverId: string) => void;
+    addContextUsage: (usage: ContextUsage) => void;
 }
 
 export const useServerStore = create<ServerState>((set, get) => ({
     servers: [],
     logs: {},
+    contextUsage: {},
     loading: false,
     error: null,
     selectedServerId: null,
@@ -42,7 +45,13 @@ export const useServerStore = create<ServerState>((set, get) => ({
         set({ loading: true, error: null });
         try {
             const servers = await serverApi.getAll();
-            set({ servers, loading: false });
+            const contextUsage = servers.reduce<Record<string, ContextUsage>>((acc, server) => {
+                if (server.context_usage) {
+                    acc[server.id] = server.context_usage;
+                }
+                return acc;
+            }, {});
+            set({ servers, contextUsage, loading: false });
         } catch (error) {
             set({ error: String(error), loading: false });
         }
@@ -144,9 +153,27 @@ export const useServerStore = create<ServerState>((set, get) => ({
             },
         }));
     },
+
+    addContextUsage: (usage) => {
+        set((state) => ({
+            contextUsage: {
+                ...state.contextUsage,
+                [usage.server_id]: usage,
+            },
+            servers: state.servers.map((server) =>
+                server.id === usage.server_id
+                    ? { ...server, context_usage: usage }
+                    : server
+            ),
+        }));
+    },
 }));
 
 // Initialize log listener
 listen<LogEntry>('server-log', (event) => {
     useServerStore.getState().addLog(event.payload);
+});
+
+listen<ContextUsage>('context-usage', (event) => {
+    useServerStore.getState().addContextUsage(event.payload);
 });
