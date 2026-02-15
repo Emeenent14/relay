@@ -16,6 +16,7 @@ import { Toaster } from './components/ui/toaster';
 import { useUIStore } from './stores/uiStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useServerStore } from './stores/serverStore';
+import { useProfileStore } from './stores/profileStore';
 
 import { ServerDetailsPage } from './components/features/servers/ServerDetailsPage';
 import { AppTour } from './components/features/onboarding/AppTour';
@@ -24,13 +25,14 @@ function App() {
   const { currentPage } = useUIStore();
   const { fetchSettings } = useSettingsStore();
   const { syncServers } = useServerStore();
+  const { fetchProfiles } = useProfileStore();
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Load settings (and apply theme) on mount
   useEffect(() => {
     const initialize = async () => {
-      await fetchSettings();
+      await Promise.all([fetchSettings(), fetchProfiles()]);
       await syncServers();
       // Set dark mode by default
       document.documentElement.classList.add('dark');
@@ -56,7 +58,7 @@ function App() {
       }
     };
     initialize();
-  }, [fetchSettings, syncServers]);
+  }, [fetchProfiles, fetchSettings, syncServers]);
 
   const handleLoadComplete = () => {
     if (isInitialized) {
