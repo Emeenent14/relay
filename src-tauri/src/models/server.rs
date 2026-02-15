@@ -13,6 +13,7 @@ pub struct Server {
     pub secrets: String, // JSON array of secret keys
     pub enabled: bool,
     pub category: String,
+    pub profile_id: String,
     pub source: String,
     pub marketplace_id: Option<String>,
     pub icon_url: Option<String>,
