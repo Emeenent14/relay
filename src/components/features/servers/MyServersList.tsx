@@ -7,8 +7,10 @@ import { useServerStore } from '../../../stores/serverStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useToast } from '../../ui/use-toast';
 import { configApi } from '../../../lib/tauri';
+import { diagnosticsApi } from '../../../lib/tauri';
 import { cn } from '../../../lib/utils';
 import { getSupportedClients } from '../../../lib/clientCatalog';
+import { parseServerArgs, parseServerEnv, parseServerSecrets, type Server } from '../../../types/server';
 import {
     Tooltip,
     TooltipContent,
@@ -69,12 +71,31 @@ export function MyServersList() {
         }
     };
 
-    const handleToggle = async (id: string, name: string) => {
+    const handleToggle = async (server: Server) => {
+        if (!server.enabled) {
+            const testResult = await diagnosticsApi.testConnection({
+                server_id: server.id,
+                command: server.command,
+                args: parseServerArgs(server),
+                env: parseServerEnv(server),
+                secrets: parseServerSecrets(server),
+            });
+
+            if (!testResult.success) {
+                toast({
+                    title: 'Preflight Check Failed',
+                    description: testResult.hints[0] || testResult.message,
+                    variant: 'destructive',
+                });
+                return;
+            }
+        }
+
         try {
-            const updated = await toggleServer(id);
+            const updated = await toggleServer(server.id);
             toast({
                 title: updated.enabled ? 'Server Enabled' : 'Server Disabled',
-                description: name,
+                description: server.name,
             });
         } catch {
             toast({ title: 'Error', description: 'Failed to toggle server', variant: 'destructive' });
@@ -164,6 +185,11 @@ export function MyServersList() {
                                                         {server.category}
                                                     </span>
                                                 )}
+                                                {server.context_usage && server.context_usage.total_tokens > 0 && (
+                                                    <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">
+                                                        {server.context_usage.total_tokens} tok
+                                                    </span>
+                                                )}
                                             </div>
                                             {server.description && (
                                                 <p className="text-sm text-muted-foreground truncate">{server.description}</p>
@@ -204,7 +230,7 @@ export function MyServersList() {
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <div>
-                                                        <Switch checked={server.enabled} onCheckedChange={() => handleToggle(server.id, server.name)} />
+                                                        <Switch checked={server.enabled} onCheckedChange={() => void handleToggle(server)} />
                                                     </div>
                                                 </TooltipTrigger>
                                                 <TooltipContent>{server.enabled ? 'Disable server' : 'Enable server'}</TooltipContent>
