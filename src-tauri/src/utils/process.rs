@@ -1,7 +1,5 @@
 use tokio::process::Command;
 use std::process::Stdio;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tauri::{AppHandle, Emitter};
 use crate::state::ServerProcess;
@@ -87,7 +85,6 @@ pub async fn spawn_server(
 
     Ok(ServerProcess {
         child,
-        status: "running".to_string(),
     })
 }
 
