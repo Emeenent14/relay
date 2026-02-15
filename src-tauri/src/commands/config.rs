@@ -1,4 +1,5 @@
 use tauri::State;
+use crate::commands::profiles::get_active_profile_id_from_db;
 use crate::state::AppState;
 use crate::models::server::Server;
 use crate::utils::paths::get_claude_config_path;
@@ -17,8 +18,10 @@ use tauri::{AppHandle, Manager};
 #[tauri::command]
 pub async fn export_to_claude(app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
     let db = state.db.lock().await;
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
 
-    let servers = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE enabled = 1")
+    let servers = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE enabled = 1 AND profile_id = ?")
+        .bind(&active_profile)
         .fetch_all(&*db)
         .await
         .map_err(|e| format!("Database error: {}", e))?;
@@ -117,8 +120,10 @@ pub async fn export_config(
     _client_id: String,
 ) -> Result<String, String> {
     let db = state.db.lock().await;
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
 
-    let servers = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE enabled = 1")
+    let servers = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE enabled = 1 AND profile_id = ?")
+        .bind(&active_profile)
         .fetch_all(&*db)
         .await
         .map_err(|e| format!("Database error: {}", e))?;
@@ -158,9 +163,11 @@ pub async fn export_config_to_path(
     path: String,
 ) -> Result<String, String> {
     let db = state.db.lock().await;
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
 
     // 1. Get enabled servers
-    let servers = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE enabled = 1")
+    let servers = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE enabled = 1 AND profile_id = ?")
+        .bind(&active_profile)
         .fetch_all(&*db)
         .await
         .map_err(|e| format!("Database error: {}", e))?;
@@ -254,10 +261,6 @@ pub async fn export_config_to_path(
     let parts: Vec<&str> = key.split('.').collect();
     let mut current = &mut config_json;
 
-    // 7. Update the specific key in Client Config
-    let parts: Vec<&str> = key.split('.').collect();
-    let mut current = &mut config_json;
-
     // Navigate to the target object (e.g. root["mcpServers"])
     for part in parts {
         if !current.get(part).map(|v| v.is_object()).unwrap_or(false) {
@@ -315,7 +318,12 @@ pub fn expand_path(path: String) -> Result<String, String> {
         } else {
             return Err("Could not determine home directory".to_string());
         }
-    } else if cfg!(windows) && (path.contains("%APPDATA%") || path.contains("%USERPROFILE%")) {
+    } else if cfg!(windows)
+        && (path.contains("%APPDATA%")
+            || path.contains("%USERPROFILE%")
+            || path.contains("%LOCALAPPDATA%")
+            || path.contains("%PROGRAMDATA%"))
+    {
         // Expand Windows environment variables
         let mut expanded = path.clone();
 
@@ -325,15 +333,32 @@ pub fn expand_path(path: String) -> Result<String, String> {
         if let Some(userprofile) = std::env::var("USERPROFILE").ok() {
             expanded = expanded.replace("%USERPROFILE%", &userprofile);
         }
+        if let Some(local_app_data) = std::env::var("LOCALAPPDATA").ok() {
+            expanded = expanded.replace("%LOCALAPPDATA%", &local_app_data);
+        }
+        if let Some(program_data) = std::env::var("PROGRAMDATA").ok() {
+            expanded = expanded.replace("%PROGRAMDATA%", &program_data);
+        }
 
         expanded
-    } else if !cfg!(windows) && path.contains("$HOME") {
-        // Expand $HOME on Unix systems
-        if let Some(home) = dirs::home_dir() {
-            path.replace("$HOME", &home.to_string_lossy())
-        } else {
-            return Err("Could not determine home directory".to_string());
+    } else if !cfg!(windows) {
+        let mut expanded = path.clone();
+        if expanded.contains("$HOME") {
+            if let Some(home) = dirs::home_dir() {
+                expanded = expanded.replace("$HOME", &home.to_string_lossy());
+            } else {
+                return Err("Could not determine home directory".to_string());
+            }
         }
+        if expanded.contains("$XDG_CONFIG_HOME") {
+            if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+                expanded = expanded.replace("$XDG_CONFIG_HOME", &xdg);
+            } else if let Some(home) = dirs::home_dir() {
+                let fallback = home.join(".config").to_string_lossy().to_string();
+                expanded = expanded.replace("$XDG_CONFIG_HOME", &fallback);
+            }
+        }
+        expanded
     } else {
         path
     };
