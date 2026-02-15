@@ -4,6 +4,7 @@
 mod commands;
 mod db;
 mod models;
+mod proxy;
 mod state;
 mod utils;
 
@@ -39,6 +40,11 @@ async fn main() {
             commands::servers::update_server,
             commands::servers::delete_server,
             commands::servers::toggle_server,
+            // Profile commands
+            commands::profiles::get_profiles,
+            commands::profiles::create_profile,
+            commands::profiles::get_active_profile,
+            commands::profiles::set_active_profile,
             // Config commands
             commands::config::get_config_path,
             commands::config::export_to_claude,
@@ -54,6 +60,9 @@ async fn main() {
             // MCP commands
             commands::mcp::list_server_tools,
             commands::mcp::call_server_tool,
+            // Diagnostics commands
+            commands::diagnostics::check_server_dependencies,
+            commands::diagnostics::test_server_connection,
             // Marketplace commands
             commands::marketplace::fetch_marketplace_servers,
             // Update commands
