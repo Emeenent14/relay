@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Secret sanity check
+        shell: bash
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.)'; then
+            echo "Remove committed .env files."
+            exit 1
+          fi
+          if git grep -nE '(ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})' -- .; then
+            echo "Potential secret detected."
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build
