@@ -1,6 +1,8 @@
 pub mod config;
+pub mod diagnostics;
 pub mod marketplace;
 pub mod mcp;
+pub mod profiles;
 pub mod servers;
 pub mod settings;
 pub mod updates;
