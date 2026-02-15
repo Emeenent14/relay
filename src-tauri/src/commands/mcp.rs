@@ -1,42 +1,56 @@
-use tauri::State;
-use crate::state::AppState;
 use crate::models::server::Server;
-use tokio::process::Command;
-use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
-use tokio::process::ChildStdout;
-use tokio::time::{timeout, Duration};
+use crate::proxy::{record_traffic, TrafficDirection};
+use crate::state::AppState;
 use serde_json::{json, Value};
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
+use std::collections::HashMap;
+use std::process::Stdio;
+use tauri::{AppHandle, State};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
+use tokio::process::{ChildStdin, ChildStdout, Command};
+use tokio::time::{timeout, Duration};
 
-/// Helper function to read a valid JSON-RPC response, skipping any non-JSON startup messages
+async fn send_json_message(
+    stdin: &mut ChildStdin,
+    state: &AppState,
+    app: &AppHandle,
+    server_id: &str,
+    payload: Value,
+) -> Result<(), String> {
+    let line = payload.to_string();
+    record_traffic(state, app, server_id, TrafficDirection::Outbound, &line).await;
+    stdin
+        .write_all(format!("{}\n", line).as_bytes())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Read a valid JSON-RPC response, skipping non-JSON startup lines.
 async fn read_json_response(
     reader: &mut Lines<BufReader<ChildStdout>>,
     timeout_secs: u64,
     context: &str,
+    state: &AppState,
+    app: &AppHandle,
+    server_id: &str,
 ) -> Result<Value, String> {
     let deadline = Duration::from_secs(timeout_secs);
-    
-    // Try to read lines until we get a valid JSON-RPC response
+
     for _attempt in 0..20 {
         let line_result = timeout(deadline, reader.next_line()).await;
-        
+
         match line_result {
             Ok(Ok(Some(line))) => {
-                // Skip empty lines
                 if line.trim().is_empty() {
                     continue;
                 }
-                
-                // Try to parse as JSON
+
+                record_traffic(state, app, server_id, TrafficDirection::Inbound, &line).await;
+
                 if let Ok(json_value) = serde_json::from_str::<Value>(&line) {
-                    // Check if it looks like a JSON-RPC response (has "jsonrpc" field)
                     if json_value.get("jsonrpc").is_some() {
                         return Ok(json_value);
                     }
                 }
-                // If not valid JSON-RPC, it's probably a startup message - skip it
             }
             Ok(Ok(None)) => {
                 return Err(format!("Server closed connection during {}", context));
@@ -45,21 +59,43 @@ async fn read_json_response(
                 return Err(format!("IO error during {}: {}", context, e));
             }
             Err(_) => {
-                return Err(format!("Timeout waiting for response during {} (waited {}s)", context, timeout_secs));
+                return Err(format!(
+                    "Timeout waiting for response during {} (waited {}s)",
+                    context, timeout_secs
+                ));
             }
         }
     }
-    
-    Err(format!("Failed to get valid JSON-RPC response after 20 attempts during {}", context))
+
+    Err(format!(
+        "Failed to get valid JSON-RPC response after 20 attempts during {}",
+        context
+    ))
+}
+
+fn build_command(command: &str) -> Command {
+    #[cfg(windows)]
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    if cfg!(windows) {
+        let mut cmd = Command::new("cmd");
+        cmd.arg("/C").arg(command);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd
+    } else {
+        Command::new(command)
+    }
 }
 
 #[tauri::command]
 pub async fn list_server_tools(
     state: State<'_, AppState>,
+    app: AppHandle,
     server_id: String,
 ) -> Result<Value, String> {
     let db = state.db.lock().await;
-    
+
     let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ?")
         .bind(&server_id)
         .fetch_one(&*db)
@@ -67,20 +103,9 @@ pub async fn list_server_tools(
         .map_err(|e| format!("Server not found: {}", e))?;
 
     let args: Vec<String> = serde_json::from_str(&server.args).unwrap_or_default();
-    let envs: std::collections::HashMap<String, String> = serde_json::from_str(&server.env).unwrap_or_default();
+    let envs: HashMap<String, String> = serde_json::from_str(&server.env).unwrap_or_default();
 
-    let mut command_builder = if cfg!(windows) {
-        #[cfg(windows)]
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let mut cmd = Command::new("cmd");
-        cmd.arg("/C").arg(&server.command);
-        #[cfg(windows)]
-        cmd.creation_flags(CREATE_NO_WINDOW);
-        cmd
-    } else {
-        Command::new(&server.command)
-    };
-
+    let mut command_builder = build_command(&server.command);
     let mut child = command_builder
         .args(args)
         .envs(envs)
@@ -94,7 +119,6 @@ pub async fn list_server_tools(
     let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
     let mut reader = BufReader::new(stdout).lines();
 
-    // 1. Initialize
     let init_request = json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -109,46 +133,58 @@ pub async fn list_server_tools(
         }
     });
 
-    stdin.write_all(format!("{}\n", init_request).as_bytes()).await.map_err(|e| e.to_string())?;
+    send_json_message(&mut stdin, &state, &app, &server_id, init_request).await?;
+    let _ = read_json_response(
+        &mut reader,
+        15,
+        "initialization",
+        &state,
+        &app,
+        &server_id,
+    )
+    .await?;
 
-    // Wait for init response (with timeout and non-JSON line skipping)
-    let _init_response = read_json_response(&mut reader, 15, "initialization").await?;
-
-    // 2. Send initialized notification
     let initialized_notification = json!({
         "jsonrpc": "2.0",
         "method": "notifications/initialized"
     });
-    stdin.write_all(format!("{}\n", initialized_notification).as_bytes()).await.map_err(|e| e.to_string())?;
+    send_json_message(
+        &mut stdin,
+        &state,
+        &app,
+        &server_id,
+        initialized_notification,
+    )
+    .await?;
 
-    // 3. List Tools
     let list_tools_request = json!({
         "jsonrpc": "2.0",
         "id": 2,
         "method": "tools/list",
         "params": {}
     });
+    send_json_message(&mut stdin, &state, &app, &server_id, list_tools_request).await?;
 
-    stdin.write_all(format!("{}\n", list_tools_request).as_bytes()).await.map_err(|e| e.to_string())?;
-
-    let response_json = read_json_response(&mut reader, 10, "tools/list").await?;
-
-    // Cleanup: Kill the process
+    let response_json =
+        read_json_response(&mut reader, 10, "tools/list", &state, &app, &server_id).await?;
     let _ = child.kill().await;
-    
-    // Extract tools from the response result
-    Ok(response_json.get("result").cloned().unwrap_or(json!({"tools": []})))
+
+    Ok(response_json
+        .get("result")
+        .cloned()
+        .unwrap_or(json!({ "tools": [] })))
 }
 
 #[tauri::command]
 pub async fn call_server_tool(
     state: State<'_, AppState>,
+    app: AppHandle,
     server_id: String,
     tool_name: String,
     arguments: Value,
 ) -> Result<Value, String> {
     let db = state.db.lock().await;
-    
+
     let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ?")
         .bind(&server_id)
         .fetch_one(&*db)
@@ -156,20 +192,9 @@ pub async fn call_server_tool(
         .map_err(|e| format!("Server not found: {}", e))?;
 
     let args: Vec<String> = serde_json::from_str(&server.args).unwrap_or_default();
-    let envs: std::collections::HashMap<String, String> = serde_json::from_str(&server.env).unwrap_or_default();
+    let envs: HashMap<String, String> = serde_json::from_str(&server.env).unwrap_or_default();
 
-    let mut command_builder = if cfg!(windows) {
-        #[cfg(windows)]
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let mut cmd = Command::new("cmd");
-        cmd.arg("/C").arg(&server.command);
-        #[cfg(windows)]
-        cmd.creation_flags(CREATE_NO_WINDOW);
-        cmd
-    } else {
-        Command::new(&server.command)
-    };
-
+    let mut command_builder = build_command(&server.command);
     let mut child = command_builder
         .args(args)
         .envs(envs)
@@ -183,7 +208,6 @@ pub async fn call_server_tool(
     let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
     let mut reader = BufReader::new(stdout).lines();
 
-    // 1. Initialize
     let init_request = json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -197,17 +221,31 @@ pub async fn call_server_tool(
             }
         }
     });
-    stdin.write_all(format!("{}\n", init_request).as_bytes()).await.map_err(|e| e.to_string())?;
-    let _ = read_json_response(&mut reader, 15, "initialization").await?;
 
-    // 2. Send initialized notification
+    send_json_message(&mut stdin, &state, &app, &server_id, init_request).await?;
+    let _ = read_json_response(
+        &mut reader,
+        15,
+        "initialization",
+        &state,
+        &app,
+        &server_id,
+    )
+    .await?;
+
     let initialized_notification = json!({
         "jsonrpc": "2.0",
         "method": "notifications/initialized"
     });
-    stdin.write_all(format!("{}\n", initialized_notification).as_bytes()).await.map_err(|e| e.to_string())?;
+    send_json_message(
+        &mut stdin,
+        &state,
+        &app,
+        &server_id,
+        initialized_notification,
+    )
+    .await?;
 
-    // 3. Call Tool
     let call_tool_request = json!({
         "jsonrpc": "2.0",
         "id": 2,
@@ -217,12 +255,14 @@ pub async fn call_server_tool(
             "arguments": arguments
         }
     });
+    send_json_message(&mut stdin, &state, &app, &server_id, call_tool_request).await?;
 
-    stdin.write_all(format!("{}\n", call_tool_request).as_bytes()).await.map_err(|e| e.to_string())?;
-
-    let response_json = read_json_response(&mut reader, 30, "tools/call").await?;
-
+    let response_json =
+        read_json_response(&mut reader, 30, "tools/call", &state, &app, &server_id).await?;
     let _ = child.kill().await;
 
-    Ok(response_json.get("result").cloned().unwrap_or(json!({"content": []})))
+    Ok(response_json
+        .get("result")
+        .cloned()
+        .unwrap_or(json!({ "content": [] })))
 }
