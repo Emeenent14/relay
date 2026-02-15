@@ -261,6 +261,47 @@ export function getClientConfigPath(client: ClientConfig): string | null {
 }
 
 /**
+ * Get likely config path candidates for clients that have multiple known variants.
+ */
+export function getClientConfigPathCandidates(client: ClientConfig): string[] {
+    const primary = getClientConfigPath(client);
+    if (!primary) return [];
+
+    const platform = getPlatform();
+    const variants = new Set<string>([primary]);
+
+    if (client.id === 'claude-desktop') {
+        if (platform === 'windows') {
+            variants.add('%APPDATA%/Claude/claude_desktop_config.json');
+            variants.add('%USERPROFILE%/.claude/claude_desktop_config.json');
+        } else if (platform === 'macos') {
+            variants.add('~/Library/Application Support/Claude/claude_desktop_config.json');
+            variants.add('~/.claude/claude_desktop_config.json');
+        } else {
+            variants.add('~/.config/Claude/claude_desktop_config.json');
+            variants.add('~/.claude/claude_desktop_config.json');
+        }
+    }
+
+    if (client.id === 'cursor') {
+        if (platform === 'windows') {
+            variants.add('%USERPROFILE%/.cursor/mcp.json');
+            variants.add('%APPDATA%/Cursor/User/mcp.json');
+            variants.add('%LOCALAPPDATA%/Cursor/User/mcp.json');
+        } else if (platform === 'macos') {
+            variants.add('~/.cursor/mcp.json');
+            variants.add('~/Library/Application Support/Cursor/User/mcp.json');
+        } else {
+            variants.add('~/.cursor/mcp.json');
+            variants.add('$XDG_CONFIG_HOME/Cursor/User/mcp.json');
+            variants.add('~/.config/Cursor/User/mcp.json');
+        }
+    }
+
+    return Array.from(variants);
+}
+
+/**
  * Get current platform
  */
 export function getPlatform(): 'windows' | 'macos' | 'linux' {
