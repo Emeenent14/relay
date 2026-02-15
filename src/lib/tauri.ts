@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Server, CreateServerInput, UpdateServerInput } from '../types/server';
 import type { AppSettings } from '../types/settings';
+import type { Profile } from '../types/profile';
+import type { ConnectionTestResult, DependencyCheckInput, DependencyIssue, TestConnectionInput } from '../types/diagnostics';
 
 /**
  * Server API - CRUD operations for MCP servers
@@ -63,4 +65,32 @@ export const settingsApi = {
 
     /** Update a single setting */
     updateSingle: (key: string, value: string) => invoke<void>('update_setting', { key, value }),
+};
+
+/**
+ * Profiles API - grouped server sets
+ */
+export const profileApi = {
+    /** List available profiles */
+    getAll: () => invoke<Profile[]>('get_profiles'),
+
+    /** Create a new profile */
+    create: (name: string) => invoke<Profile>('create_profile', { name }),
+
+    /** Get currently active profile id */
+    getActive: () => invoke<string>('get_active_profile'),
+
+    /** Switch active profile */
+    setActive: (profileId: string) => invoke<string>('set_active_profile', { profileId }),
+};
+
+/**
+ * Diagnostics API - dependency checks and connection validation
+ */
+export const diagnosticsApi = {
+    checkDependencies: (input: DependencyCheckInput) =>
+        invoke<DependencyIssue[]>('check_server_dependencies', { input }),
+
+    testConnection: (input: TestConnectionInput) =>
+        invoke<ConnectionTestResult>('test_server_connection', { input }),
 };
