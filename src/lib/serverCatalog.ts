@@ -715,7 +715,7 @@ export const COMMUNITY_SERVERS: ServerTemplate[] = [
         env: {
             JIRA_HOST: 'https://your-domain.atlassian.net',
             JIRA_EMAIL: '<your-email>',
-            JIRA_API_TOKEN: '<your-api-token>',
+            JIRA_API_TOKEN: '<your-jira-api-token>',
         },
         category: 'productivity',
         source: 'community',
@@ -734,7 +734,7 @@ export const COMMUNITY_SERVERS: ServerTemplate[] = [
         env: {
             CONFLUENCE_HOST: 'https://your-domain.atlassian.net',
             CONFLUENCE_EMAIL: '<your-email>',
-            CONFLUENCE_API_TOKEN: '<your-api-token>',
+            CONFLUENCE_API_TOKEN: '<your-confluence-api-token>',
         },
         category: 'productivity',
         source: 'community',
@@ -752,7 +752,7 @@ export const COMMUNITY_SERVERS: ServerTemplate[] = [
         args: ['-y', 'mcp-server-trello'],
         env: {
             TRELLO_API_KEY: '<your-api-key>',
-            TRELLO_TOKEN: '<your-token>',
+            TRELLO_TOKEN: '<your-trello-token>',
         },
         category: 'productivity',
         source: 'community',
@@ -769,7 +769,7 @@ export const COMMUNITY_SERVERS: ServerTemplate[] = [
         command: 'npx',
         args: ['-y', 'mcp-server-todoist'],
         env: {
-            TODOIST_API_TOKEN: '<your-api-token>',
+            TODOIST_API_TOKEN: '<your-todoist-api-token>',
         },
         category: 'productivity',
         source: 'community',
