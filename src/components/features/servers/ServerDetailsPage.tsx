@@ -17,6 +17,8 @@ import { SERVER_CATEGORIES } from '../../../lib/constants';
 import { ALL_SERVER_TEMPLATES } from '../../../lib/serverCatalog';
 import { cn } from '../../../lib/utils';
 import { useToast } from '../../ui/use-toast';
+import { diagnosticsApi } from '../../../lib/tauri';
+import type { ConnectionTestResult, DependencyIssue } from '../../../types/diagnostics';
 
 interface EnvVar {
     id: string;
@@ -45,6 +47,9 @@ export function ServerDetailsPage() {
     const [envVars, setEnvVars] = useState<EnvVar[]>([]);
     const [isDirty, setIsDirty] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
+    const [dependencyIssues, setDependencyIssues] = useState<DependencyIssue[]>([]);
 
     // Initialize state from server
     useEffect(() => {
@@ -150,8 +155,36 @@ export function ServerDetailsPage() {
 
         setEnvVars(vars);
         setIsDirty(false);
+        setTestResult(null);
         // Expose hint/docUrl to render scope if needed, or derived in render
     }, [server]);
+
+    useEffect(() => {
+        const trimmedCommand = command.trim();
+        if (!trimmedCommand) {
+            setDependencyIssues([]);
+            return;
+        }
+
+        const argsArray = args.split(/[\n\s]+/).map(a => a.trim()).filter(Boolean);
+        const timer = setTimeout(async () => {
+            try {
+                const issues = await diagnosticsApi.checkDependencies({
+                    command: trimmedCommand,
+                    args: argsArray,
+                });
+                setDependencyIssues(issues);
+            } catch {
+                setDependencyIssues([]);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [args, command]);
+
+    useEffect(() => {
+        setTestResult(null);
+    }, [name, description, command, args, category, envVars]);
 
     // Derived values for render
     const template = server ? ALL_SERVER_TEMPLATES.find(t => t.id === server.marketplace_id) : null;
@@ -178,6 +211,78 @@ export function ServerDetailsPage() {
         }
     };
 
+    const buildConfigPayload = () => {
+        const argsArray = args.split(/[\n\s]+/).map(a => a.trim()).filter(Boolean);
+        const env: Record<string, string> = {};
+        const secrets: string[] = [];
+
+        envVars.forEach(v => {
+            const key = v.key.trim();
+            if (!key) return;
+
+            if (v.isSecret) {
+                secrets.push(key);
+                if (v.value && v.value !== '********') {
+                    env[key] = v.value;
+                }
+                return;
+            }
+
+            env[key] = v.value;
+        });
+
+        return { argsArray, env, secrets };
+    };
+
+    const runConnectionTest = async () => {
+        if (!server) return false;
+        if (!command.trim()) {
+            toast({
+                title: 'Validation Error',
+                description: 'Command is required to test the connection.',
+                variant: 'destructive',
+            });
+            return false;
+        }
+        setTesting(true);
+        try {
+            const { argsArray, env, secrets } = buildConfigPayload();
+            const result = await diagnosticsApi.testConnection({
+                server_id: server.id,
+                command: command.trim(),
+                args: argsArray,
+                env,
+                secrets,
+            });
+            setTestResult(result);
+
+            if (!result.success) {
+                toast({
+                    title: 'Connection Test Failed',
+                    description: result.hints[0] || result.message,
+                    variant: 'destructive',
+                });
+                return false;
+            }
+
+            toast({
+                title: 'Connection Test Passed',
+                description: result.message,
+                variant: 'success',
+            });
+            return true;
+        } catch (error) {
+            toast({
+                title: 'Connection Test Error',
+                description: String(error),
+                variant: 'destructive',
+            });
+            return false;
+        } finally {
+            setTesting(false);
+        }
+    };
+
     const handleSave = async () => {
         if (!name.trim() || !command.trim()) {
             toast({
@@ -190,38 +295,10 @@ export function ServerDetailsPage() {
 
         setLoading(true);
         try {
-            const argsArray = args.split(/[\n\s]+/).map(a => a.trim()).filter(Boolean);
+            const passed = await runConnectionTest();
+            if (!passed) return;
 
-            const env: Record<string, string> = {};
-            const secrets: string[] = [];
-
-            envVars.forEach(v => {
-                if (v.key.trim()) {
-                    if (v.isSecret) {
-                        // If it's the placeholder, we just keep the key in secrets list (backend preserves value)
-                        // If it's a NEW value (not placeholder), backend updates it
-                        if (v.value !== '********') {
-                            // We don't send the value to env, we send it to secrets update list? 
-                            // Wait, existing logic in EditServerDialog:
-                            // required sending value in 'env' OR separate logic?
-                            // The rust command 'update_server' takes env map and secrets list.
-                            // Logic: If it's a secret and value changed, we likely need to handle it.
-                            // Actually, typical flow: 
-                            // 1. If secret + placeholder -> key goes to secrets list, nothing in env map (preserve old)
-                            // 2. If secret + new value -> key goes to secrets list, value goes to env map (to be saved in keyring)
-                            if (v.value !== '********') {
-                                env[v.key.trim()] = v.value;
-                                secrets.push(v.key.trim());
-                            } else {
-                                // Just preserve it
-                                secrets.push(v.key.trim());
-                            }
-                        }
-                    } else {
-                        env[v.key.trim()] = v.value;
-                    }
-                }
-            });
+            const { argsArray, env, secrets } = buildConfigPayload();
 
             await updateServer({
                 id: server.id,
@@ -286,6 +363,11 @@ export function ServerDetailsPage() {
                                     <Badge variant={server.enabled ? "default" : "secondary"} className={cn("text-xs font-mono h-5", !server.enabled && "opacity-50")}>
                                         {server.enabled ? "Running" : "Stopped"}
                                     </Badge>
+                                    {server.context_usage && server.context_usage.total_tokens > 0 && (
+                                        <Badge variant="outline" className="text-xs font-mono h-5">
+                                            {server.context_usage.total_tokens} tok
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -294,8 +376,11 @@ export function ServerDetailsPage() {
                             <Button variant="outline" size="sm" onClick={() => openLogsDialog(server)}>
                                 <Terminal className="h-4 w-4 mr-2" /> Logs
                             </Button>
+                            <Button variant="outline" size="sm" onClick={() => void runConnectionTest()} disabled={testing}>
+                                {testing ? 'Testing...' : 'Test Connection'}
+                            </Button>
                             <div className="h-6 w-px bg-border mx-1" />
-                            <Button variant="default" size="sm" onClick={handleSave} disabled={!isDirty || loading}>
+                            <Button variant="default" size="sm" onClick={handleSave} disabled={!isDirty || loading || testing}>
                                 <Save className="h-4 w-4 mr-2" />
                                 {loading ? 'Saving...' : 'Save Changes'}
                             </Button>
@@ -375,7 +460,13 @@ export function ServerDetailsPage() {
                                                 </div>
                                                 <Button
                                                     variant={server.enabled ? "secondary" : "default"}
-                                                    onClick={() => toggleServer(server.id)}
+                                                    onClick={async () => {
+                                                        if (!server.enabled) {
+                                                            const passed = await runConnectionTest();
+                                                            if (!passed) return;
+                                                        }
+                                                        await toggleServer(server.id);
+                                                    }}
                                                     className="w-32"
                                                 >
                                                     {server.enabled ? <Square className="h-4 w-4 mr-2 fill-current" /> : <Play className="h-4 w-4 mr-2 fill-current" />}
@@ -401,6 +492,19 @@ export function ServerDetailsPage() {
 
                                 {/* Configuration Tab - The "Docker Style" Request */}
                                 <TabsContent value="configuration" className="mt-0 space-y-8">
+                                    {testResult && !testResult.success && (
+                                        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 space-y-2">
+                                            <p className="font-semibold text-destructive">Connection diagnostics</p>
+                                            <p className="text-sm">{testResult.message}</p>
+                                            {testResult.hints.length > 0 && (
+                                                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                                                    {testResult.hints.map((hint, index) => (
+                                                        <li key={index}>{hint}</li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* General Settings */}
                                     <div className="space-y-6">
@@ -510,6 +614,16 @@ export function ServerDetailsPage() {
                                                 <div className="space-y-2">
                                                     <Label>Command</Label>
                                                     <Input className="font-mono" value={command} onChange={e => { setCommand(e.target.value); setIsDirty(true); }} />
+                                                    {dependencyIssues.length > 0 && (
+                                                        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                                                            <p className="font-semibold">Missing prerequisites</p>
+                                                            {dependencyIssues.map((issue) => (
+                                                                <p key={issue.binary}>
+                                                                    <strong>{issue.binary}</strong>: {issue.install_hint}
+                                                                </p>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label>Arguments</Label>
