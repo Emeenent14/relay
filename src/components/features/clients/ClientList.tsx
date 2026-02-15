@@ -3,7 +3,7 @@ import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { useToast } from '../../ui/use-toast';
 import { configApi } from '../../../lib/tauri';
-import { MCP_CLIENTS, type ClientConfig, getClientConfigPath, resolveConfigPath } from '../../../lib/clientCatalog';
+import { MCP_CLIENTS, type ClientConfig, getClientConfigPathCandidates, resolveConfigPath } from '../../../lib/clientCatalog';
 import { ConnectCustomDialog } from './ConnectCustomDialog';
 import {
     MessageSquare,
@@ -99,17 +99,28 @@ function ClientCard({ client }: { client: ClientConfig }) {
     const handleConnect = async (e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent card expansion if we were clicking card
         try {
-            // 1. Get abstract path
-            const abstractPath = getClientConfigPath(client);
-            if (!abstractPath) {
+            const abstractPaths = getClientConfigPathCandidates(client);
+            if (abstractPaths.length === 0) {
                 throw new Error("Configuration path not defined for this platform");
             }
 
-            // 2. Resolve to real path
-            const resolvedPath = await resolveConfigPath(abstractPath);
+            let resolvedPath = '';
+            let lastError: unknown = null;
 
-            // 3. Export config to path
-            await configApi.exportToPath(resolvedPath, client.mcpConfigKey);
+            for (const abstractPath of abstractPaths) {
+                try {
+                    resolvedPath = await resolveConfigPath(abstractPath);
+                    await configApi.exportToPath(resolvedPath, client.mcpConfigKey);
+                    lastError = null;
+                    break;
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            if (lastError) {
+                throw lastError;
+            }
 
             setIsConnected(true);
             toast({
