@@ -1,12 +1,22 @@
 import { cn } from '../../lib/utils';
-import { Server, Settings, Search, LayoutGrid } from 'lucide-react';
+import { useEffect } from 'react';
+import { Server, Settings, Search, LayoutGrid, Plus } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
+import { useProfileStore } from '../../stores/profileStore';
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from '../ui/tooltip';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '../ui/select';
+import { toast } from '../ui/use-toast';
 
 const navItems = [
     { id: 'servers' as const, label: 'Servers', icon: Server },
@@ -42,6 +52,26 @@ const socialLinks = [
 
 export function Sidebar() {
     const { currentPage, setCurrentPage } = useUIStore();
+    const { profiles, activeProfileId, fetchProfiles, createProfile, setActiveProfile } = useProfileStore();
+
+    useEffect(() => {
+        fetchProfiles();
+    }, [fetchProfiles]);
+
+    const handleCreateProfile = async () => {
+        const name = window.prompt('Profile name');
+        if (!name || !name.trim()) return;
+        try {
+            const profile = await createProfile(name.trim());
+            await setActiveProfile(profile.id);
+        } catch (error) {
+            toast({
+                title: 'Profile Error',
+                description: String(error),
+                variant: 'destructive',
+            });
+        }
+    };
 
     return (
         <TooltipProvider delayDuration={300}>
@@ -59,6 +89,45 @@ export function Sidebar() {
                             <p className="text-xs text-muted-foreground">MCP Server Manager</p>
                         </div>
                     </div>
+                </div>
+
+                <div className="px-6 py-4 border-b border-border">
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Profile</p>
+                        <button
+                            type="button"
+                            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={handleCreateProfile}
+                            title="Create profile"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                    <Select
+                        value={activeProfileId}
+                        onValueChange={async (value) => {
+                            try {
+                                await setActiveProfile(value);
+                            } catch (error) {
+                                toast({
+                                    title: 'Profile Switch Failed',
+                                    description: String(error),
+                                    variant: 'destructive',
+                                });
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="h-9 text-sm">
+                            <SelectValue placeholder="Select profile" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {profiles.map((profile) => (
+                                <SelectItem key={profile.id} value={profile.id}>
+                                    {profile.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 {/* Navigation */}
