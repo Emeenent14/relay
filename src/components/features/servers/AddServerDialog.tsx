@@ -18,12 +18,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from '../../ui/select';
-import { Plus, Trash2, Lock, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Lock, Eye, EyeOff, Wrench, AlertTriangle } from 'lucide-react';
 import { useServerStore } from '../../../stores/serverStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useToast } from '../../ui/use-toast';
 import { SERVER_CATEGORIES } from '../../../lib/constants';
 import { cn } from '../../../lib/utils';
+import { diagnosticsApi } from '../../../lib/tauri';
+import type { ConnectionTestResult, DependencyIssue } from '../../../types/diagnostics';
 
 interface EnvVar {
     id: string;
@@ -45,6 +47,9 @@ export function AddServerDialog() {
     const [category, setCategory] = useState('other');
     const [envVars, setEnvVars] = useState<EnvVar[]>([]);
     const [loading, setLoading] = useState(false);
+    const [testing, setTesting] = useState(false);
+    const [dependencyIssues, setDependencyIssues] = useState<DependencyIssue[]>([]);
+    const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
 
     const isOpen = activeDialog === 'add';
 
@@ -56,17 +61,52 @@ export function AddServerDialog() {
             setArgs(marketplaceData.args.join('\n'));
             setCategory(marketplaceData.category.toLowerCase());
 
-            // Map marketplace env variables
             if (marketplaceData.envVariables) {
-                setEnvVars(marketplaceData.envVariables.map(key => ({
-                    id: Math.random().toString(36).substr(2, 9),
-                    key,
-                    value: '',
-                    isSecret: key.toLowerCase().includes('token') || key.toLowerCase().includes('key') || key.toLowerCase().includes('secret'),
-                })));
+                setEnvVars(
+                    marketplaceData.envVariables.map((key) => ({
+                        id: Math.random().toString(36).substr(2, 9),
+                        key,
+                        value: '',
+                        isSecret:
+                            key.toLowerCase().includes('token') ||
+                            key.toLowerCase().includes('key') ||
+                            key.toLowerCase().includes('secret'),
+                    }))
+                );
             }
         }
     }, [isOpen, marketplaceData]);
+
+    useEffect(() => {
+        setTestResult(null);
+    }, [name, description, command, args, category, envVars]);
+
+    useEffect(() => {
+        const trimmedCommand = command.trim();
+        if (!trimmedCommand) {
+            setDependencyIssues([]);
+            return;
+        }
+
+        const argsArray = args
+            .split(/[\n\s]+/)
+            .map((a) => a.trim())
+            .filter(Boolean);
+
+        const timer = setTimeout(async () => {
+            try {
+                const issues = await diagnosticsApi.checkDependencies({
+                    command: trimmedCommand,
+                    args: argsArray,
+                });
+                setDependencyIssues(issues);
+            } catch {
+                setDependencyIssues([]);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [args, command]);
 
     const resetForm = () => {
         setName('');
@@ -75,6 +115,8 @@ export function AddServerDialog() {
         setArgs('');
         setCategory('other');
         setEnvVars([]);
+        setDependencyIssues([]);
+        setTestResult(null);
     };
 
     const handleClose = () => {
@@ -83,20 +125,98 @@ export function AddServerDialog() {
     };
 
     const addEnvVar = () => {
-        setEnvVars([...envVars, {
-            id: Math.random().toString(36).substr(2, 9),
-            key: '',
-            value: '',
-            isSecret: false
-        }]);
+        setEnvVars([
+            ...envVars,
+            {
+                id: Math.random().toString(36).substr(2, 9),
+                key: '',
+                value: '',
+                isSecret: false,
+            },
+        ]);
     };
 
     const removeEnvVar = (id: string) => {
-        setEnvVars(envVars.filter(v => v.id !== id));
+        setEnvVars(envVars.filter((v) => v.id !== id));
     };
 
     const updateEnvVar = (id: string, updates: Partial<EnvVar>) => {
-        setEnvVars(envVars.map(v => v.id === id ? { ...v, ...updates } : v));
+        setEnvVars(envVars.map((v) => (v.id === id ? { ...v, ...updates } : v)));
+    };
+
+    const buildPayload = () => {
+        const argsArray = args
+            .split(/[\n\s]+/)
+            .map((a) => a.trim())
+            .filter(Boolean);
+
+        const env: Record<string, string> = {};
+        const secrets: string[] = [];
+
+        envVars.forEach((v) => {
+            const key = v.key.trim();
+            if (!key) return;
+
+            if (v.isSecret) {
+                secrets.push(key);
+                if (v.value) {
+                    env[key] = v.value;
+                }
+                return;
+            }
+
+            env[key] = v.value;
+        });
+
+        return { argsArray, env, secrets };
+    };
+
+    const runConnectionTest = async (): Promise<boolean> => {
+        if (!command.trim()) {
+            toast({
+                title: 'Validation Error',
+                description: 'Command is required to run a connection test.',
+                variant: 'destructive',
+            });
+            return false;
+        }
+
+        setTesting(true);
+        try {
+            const { argsArray, env, secrets } = buildPayload();
+            const result = await diagnosticsApi.testConnection({
+                command: command.trim(),
+                args: argsArray,
+                env,
+                secrets,
+            });
+            setTestResult(result);
+
+            if (result.success) {
+                toast({
+                    title: 'Connection Test Passed',
+                    description: result.message,
+                    variant: 'success',
+                });
+                return true;
+            }
+
+            toast({
+                title: 'Connection Test Failed',
+                description: result.hints[0] || result.message,
+                variant: 'destructive',
+            });
+            return false;
+        } catch (error) {
+            toast({
+                title: 'Connection Test Error',
+                description: String(error),
+                variant: 'destructive',
+            });
+            return false;
+        } finally {
+            setTesting(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -113,22 +233,10 @@ export function AddServerDialog() {
 
         setLoading(true);
         try {
-            const argsArray = args
-                .split(/[\n\s]+/)
-                .map(a => a.trim())
-                .filter(Boolean);
+            const canProceed = await runConnectionTest();
+            if (!canProceed) return;
 
-            const env: Record<string, string> = {};
-            const secrets: string[] = [];
-
-            envVars.forEach(v => {
-                if (v.key.trim()) {
-                    env[v.key.trim()] = v.value;
-                    if (v.isSecret) {
-                        secrets.push(v.key.trim());
-                    }
-                }
-            });
+            const { argsArray, env, secrets } = buildPayload();
 
             await createServer({
                 name: name.trim(),
@@ -160,12 +268,12 @@ export function AddServerDialog() {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-[650px] max-h-[88vh] flex flex-col p-0 overflow-hidden">
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
                     <DialogHeader className="p-6 pb-2 shrink-0">
                         <DialogTitle>Add MCP Server</DialogTitle>
                         <DialogDescription>
-                            Configure a new MCP server. Secrets are stored in your system's secure keyring.
+                            Configure a new MCP server. Secrets are stored in your system&apos;s secure keyring.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -200,6 +308,19 @@ export function AddServerDialog() {
                                     value={command}
                                     onChange={(e) => setCommand(e.target.value)}
                                 />
+                                {dependencyIssues.length > 0 && (
+                                    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                                        <p className="font-semibold flex items-center gap-2">
+                                            <AlertTriangle className="h-3.5 w-3.5" />
+                                            Missing prerequisites
+                                        </p>
+                                        {dependencyIssues.map((issue) => (
+                                            <p key={issue.binary}>
+                                                <strong>{issue.binary}</strong>: {issue.install_hint}
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid gap-2">
@@ -212,6 +333,20 @@ export function AddServerDialog() {
                                     rows={3}
                                 />
                             </div>
+
+                            {testResult && !testResult.success && (
+                                <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-2">
+                                    <p className="font-semibold text-destructive">Connection diagnostics</p>
+                                    <p>{testResult.message}</p>
+                                    {testResult.hints.length > 0 && (
+                                        <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                                            {testResult.hints.map((hint, index) => (
+                                                <li key={index}>{hint}</li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
@@ -307,7 +442,11 @@ export function AddServerDialog() {
                         <Button type="button" variant="outline" onClick={handleClose}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={loading}>
+                        <Button type="button" variant="outline" onClick={() => void runConnectionTest()} disabled={testing || loading}>
+                            <Wrench className="h-4 w-4 mr-2" />
+                            {testing ? 'Testing...' : 'Test Connection'}
+                        </Button>
+                        <Button type="submit" disabled={loading || testing}>
                             {loading ? 'Creating...' : 'Create Server'}
                         </Button>
                     </DialogFooter>
