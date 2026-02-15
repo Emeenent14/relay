@@ -1,4 +1,5 @@
 use tauri::{State, AppHandle};
+use crate::commands::profiles::get_active_profile_id_from_db;
 use crate::state::AppState;
 use crate::models::server::{Server, CreateServerInput, UpdateServerInput};
 use crate::utils::process::spawn_server;
@@ -8,7 +9,11 @@ use serde_json::Value;
 #[tauri::command]
 pub async fn sync_servers(state: State<'_, AppState>, app: AppHandle) -> Result<(), String> {
     let db = state.db.lock().await;
-    let enabled_servers = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE enabled = 1")
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
+    let enabled_servers = sqlx::query_as::<_, Server>(
+        "SELECT * FROM servers WHERE enabled = 1 AND profile_id = ?",
+    )
+        .bind(&active_profile)
         .fetch_all(&*db)
         .await
         .map_err(|e| e.to_string())?;
@@ -44,14 +49,17 @@ pub async fn sync_servers(state: State<'_, AppState>, app: AppHandle) -> Result<
 #[tauri::command]
 pub async fn get_servers(state: State<'_, AppState>) -> Result<Vec<Value>, String> {
     let db = state.db.lock().await;
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
 
-    let servers = sqlx::query_as::<_, Server>("SELECT * FROM servers ORDER BY name")
+    let servers = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE profile_id = ? ORDER BY name")
+        .bind(&active_profile)
         .fetch_all(&*db)
         .await
         .map_err(|e| format!("Database error: {}", e))?;
 
     let mut result = Vec::new();
     let processes = state.processes.lock().await;
+    let usage = state.context_usage.lock().await;
 
     for server in servers {
         let mut val = serde_json::to_value(&server).unwrap();
@@ -60,7 +68,16 @@ pub async fn get_servers(state: State<'_, AppState>) -> Result<Vec<Value>, Strin
         } else {
             "stopped"
         };
-        val.as_object_mut().unwrap().insert("status".to_string(), serde_json::Value::String(status.to_string()));
+
+        if let Some(obj) = val.as_object_mut() {
+            obj.insert("status".to_string(), serde_json::Value::String(status.to_string()));
+            if let Some(context_usage) = usage.get(&server.id) {
+                obj.insert(
+                    "context_usage".to_string(),
+                    serde_json::to_value(context_usage).unwrap_or(serde_json::Value::Null),
+                );
+            }
+        }
         result.push(val);
     }
 
@@ -70,21 +87,32 @@ pub async fn get_servers(state: State<'_, AppState>) -> Result<Vec<Value>, Strin
 #[tauri::command]
 pub async fn get_server(state: State<'_, AppState>, id: String) -> Result<Value, String> {
     let db = state.db.lock().await;
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
 
-    let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ?")
+    let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ? AND profile_id = ?")
         .bind(&id)
+        .bind(&active_profile)
         .fetch_one(&*db)
         .await
         .map_err(|e| format!("Server not found: {}", e))?;
 
     let processes = state.processes.lock().await;
+    let usage = state.context_usage.lock().await;
     let mut val = serde_json::to_value(&server).unwrap();
     let status = if processes.contains_key(&server.id) {
         "running"
     } else {
         "stopped"
     };
-    val.as_object_mut().unwrap().insert("status".to_string(), serde_json::Value::String(status.to_string()));
+    if let Some(obj) = val.as_object_mut() {
+        obj.insert("status".to_string(), serde_json::Value::String(status.to_string()));
+        if let Some(context_usage) = usage.get(&server.id) {
+            obj.insert(
+                "context_usage".to_string(),
+                serde_json::to_value(context_usage).unwrap_or(serde_json::Value::Null),
+            );
+        }
+    }
 
     Ok(val)
 }
@@ -95,13 +123,15 @@ pub async fn create_server(
     input: CreateServerInput,
 ) -> Result<Server, String> {
     let db = state.db.lock().await;
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
 
     // Check for duplicate marketplace server
     if let Some(ref marketplace_id) = input.marketplace_id {
         let existing = sqlx::query_as::<_, Server>(
-            "SELECT * FROM servers WHERE marketplace_id = ?"
+            "SELECT * FROM servers WHERE marketplace_id = ? AND profile_id = ?"
         )
         .bind(marketplace_id)
+        .bind(&active_profile)
         .fetch_optional(&*db)
         .await
         .map_err(|e| e.to_string())?;
@@ -134,8 +164,8 @@ pub async fn create_server(
     let source = if input.marketplace_id.is_some() { "marketplace" } else { "local" };
 
     sqlx::query(
-        "INSERT INTO servers (id, name, description, command, args, env, secrets, enabled, category, source, marketplace_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)"
+        "INSERT INTO servers (id, name, description, command, args, env, secrets, enabled, category, profile_id, source, marketplace_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)"
     )
     .bind(&id)
     .bind(&input.name)
@@ -145,6 +175,7 @@ pub async fn create_server(
     .bind(&env_json)
     .bind(&secrets_json)
     .bind(&category)
+    .bind(&active_profile)
     .bind(&source)
     .bind(&input.marketplace_id)
     .bind(&now)
@@ -167,9 +198,11 @@ pub async fn update_server(
     input: UpdateServerInput,
 ) -> Result<Server, String> {
     let db = state.db.lock().await;
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
 
-    let mut server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ?")
+    let mut server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ? AND profile_id = ?")
         .bind(&input.id)
+        .bind(&active_profile)
         .fetch_one(&*db)
         .await
         .map_err(|e| format!("Server not found: {}", e))?;
@@ -201,7 +234,7 @@ pub async fn update_server(
     server.updated_at = chrono::Utc::now().to_rfc3339();
 
     sqlx::query(
-        "UPDATE servers SET name = ?, description = ?, command = ?, args = ?, env = ?, secrets = ?, enabled = ?, category = ?, updated_at = ? WHERE id = ?"
+        "UPDATE servers SET name = ?, description = ?, command = ?, args = ?, env = ?, secrets = ?, enabled = ?, category = ?, updated_at = ? WHERE id = ? AND profile_id = ?"
     )
     .bind(&server.name)
     .bind(&server.description)
@@ -213,6 +246,7 @@ pub async fn update_server(
     .bind(&server.category)
     .bind(&server.updated_at)
     .bind(&server.id)
+    .bind(&active_profile)
     .execute(&*db)
     .await
     .map_err(|e| format!("Failed to update server: {}", e))?;
@@ -238,16 +272,19 @@ pub async fn update_server(
 #[tauri::command]
 pub async fn delete_server(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().await;
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
 
     // Fetch server to get secret keys before deletion
-    let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ?")
+    let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ? AND profile_id = ?")
         .bind(&id)
+        .bind(&active_profile)
         .fetch_one(&*db)
         .await
         .map_err(|e| format!("Server not found: {}", e))?;
 
-    sqlx::query("DELETE FROM servers WHERE id = ?")
+    sqlx::query("DELETE FROM servers WHERE id = ? AND profile_id = ?")
         .bind(&id)
+        .bind(&active_profile)
         .execute(&*db)
         .await
         .map_err(|e| format!("Failed to delete server: {}", e))?;
@@ -267,17 +304,20 @@ pub async fn delete_server(state: State<'_, AppState>, id: String) -> Result<(),
 #[tauri::command]
 pub async fn toggle_server(state: State<'_, AppState>, app: AppHandle, id: String) -> Result<Server, String> {
     let db = state.db.lock().await;
+    let active_profile = get_active_profile_id_from_db(&*db).await?;
     let now = chrono::Utc::now().to_rfc3339();
 
-    sqlx::query("UPDATE servers SET enabled = NOT enabled, updated_at = ? WHERE id = ?")
+    sqlx::query("UPDATE servers SET enabled = NOT enabled, updated_at = ? WHERE id = ? AND profile_id = ?")
         .bind(&now)
         .bind(&id)
+        .bind(&active_profile)
         .execute(&*db)
         .await
         .map_err(|e| format!("Failed to toggle server: {}", e))?;
 
-    let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ?")
+    let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ? AND profile_id = ?")
         .bind(&id)
+        .bind(&active_profile)
         .fetch_one(&*db)
         .await
         .map_err(|e| e.to_string())?;
@@ -298,4 +338,3 @@ pub async fn toggle_server(state: State<'_, AppState>, app: AppHandle, id: Strin
 
     Ok(server)
 }
-
