@@ -5,10 +5,11 @@ import { Pencil, Trash2, Terminal, ExternalLink } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { CATEGORY_COLORS, type ServerCategory } from '../../../lib/constants';
 import { formatRelativeTime } from '../../../lib/utils';
-import type { Server as ServerType } from '../../../types/server';
+import { parseServerArgs, parseServerEnv, parseServerSecrets, type Server as ServerType } from '../../../types/server';
 import { useServerStore } from '../../../stores/serverStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useToast } from '../../ui/use-toast';
+import { diagnosticsApi } from '../../../lib/tauri';
 import {
     Tooltip,
     TooltipContent,
@@ -22,10 +23,29 @@ interface ServerCardProps {
 
 export function ServerCard({ server }: ServerCardProps) {
     const { toggleServer } = useServerStore();
-    const { viewServer, openDeleteDialog } = useUIStore();
+    const { viewServer, openDeleteDialog, openLogsDialog } = useUIStore();
     const { toast } = useToast();
 
     const handleToggle = async () => {
+        if (!server.enabled) {
+            const testResult = await diagnosticsApi.testConnection({
+                server_id: server.id,
+                command: server.command,
+                args: parseServerArgs(server),
+                env: parseServerEnv(server),
+                secrets: parseServerSecrets(server),
+            });
+
+            if (!testResult.success) {
+                toast({
+                    title: 'Preflight Check Failed',
+                    description: testResult.hints[0] || testResult.message,
+                    variant: 'destructive',
+                });
+                return;
+            }
+        }
+
         try {
             const updated = await toggleServer(server.id);
             toast({
@@ -88,6 +108,11 @@ export function ServerCard({ server }: ServerCardProps) {
                                     <span className="font-mono truncate max-w-[200px]">
                                         {server.command}
                                     </span>
+                                    {server.context_usage && server.context_usage.total_tokens > 0 && (
+                                        <span className="text-blue-600 dark:text-blue-300">
+                                            {server.context_usage.total_tokens} tok
+                                        </span>
+                                    )}
                                     <span className="shrink-0">
                                         {formatRelativeTime(server.updated_at)}
                                     </span>
@@ -112,6 +137,20 @@ export function ServerCard({ server }: ServerCardProps) {
                                     <TooltipContent>View documentation</TooltipContent>
                                 </Tooltip>
                             )}
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => openLogsDialog(server)}
+                                    >
+                                        <Terminal className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>View logs</TooltipContent>
+                            </Tooltip>
 
                             <Tooltip>
                                 <TooltipTrigger asChild>
