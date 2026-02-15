@@ -21,6 +21,8 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         .execute(&pool)
         .await?;
 
+    ensure_profile_schema(&pool).await?;
+
     Ok(pool)
 }
 
@@ -30,4 +32,40 @@ fn get_db_path() -> PathBuf {
         .join("relay");
 
     data_dir.join("data.db")
+}
+
+async fn ensure_profile_schema(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    let has_profile_column: Option<String> = sqlx::query_scalar(
+        "SELECT name FROM pragma_table_info('servers') WHERE name = 'profile_id'",
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    if has_profile_column.is_none() {
+        sqlx::query("ALTER TABLE servers ADD COLUMN profile_id TEXT DEFAULT 'default'")
+            .execute(pool)
+            .await?;
+    }
+
+    sqlx::query("UPDATE servers SET profile_id = 'default' WHERE profile_id IS NULL OR profile_id = ''")
+        .execute(pool)
+        .await?;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_servers_profile ON servers(profile_id)")
+        .execute(pool)
+        .await?;
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO profiles (id, name, created_at, updated_at) VALUES ('default', 'Default', datetime('now'), datetime('now'))",
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES ('activeProfile', 'default', datetime('now'))",
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
