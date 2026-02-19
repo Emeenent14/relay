@@ -25,6 +25,8 @@ export interface MarketplaceServer {
     requiresConfig: boolean;
     pullCount?: number;
     starCount?: number;
+    trustLevel: 'verified' | 'official' | 'community';
+    lastUpdated?: string;
 }
 
 export const marketplaceService = {
@@ -74,12 +76,14 @@ export const marketplaceService = {
                     sourceUrl: t.documentationUrl || '',
                     category: t.category,
                     iconUrl: t.iconUrl,
-                    source: 'catalog',
+                    source: 'catalog' as const,
                     verified: t.verified || false,
                     packageName: t.packageName || '',
                     requiresConfig: t.requiresConfig || false,
                     pullCount: undefined,
-                    starCount: undefined
+                    starCount: undefined,
+                    trustLevel: (t.source === 'official' ? 'verified' : 'community') as 'verified' | 'official' | 'community',
+                    lastUpdated: undefined,
                 }));
 
             return {

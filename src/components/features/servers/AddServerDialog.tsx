@@ -18,7 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '../../ui/select';
-import { Plus, Trash2, Lock, Eye, EyeOff, Wrench, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Lock, Eye, EyeOff, Wrench, AlertTriangle, Globe } from 'lucide-react';
 import { useServerStore } from '../../../stores/serverStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useToast } from '../../ui/use-toast';
@@ -45,6 +45,8 @@ export function AddServerDialog() {
     const [command, setCommand] = useState('');
     const [args, setArgs] = useState('');
     const [category, setCategory] = useState('other');
+    const [transport, setTransport] = useState<'stdio' | 'sse'>('stdio');
+    const [serverUrl, setServerUrl] = useState('');
     const [envVars, setEnvVars] = useState<EnvVar[]>([]);
     const [loading, setLoading] = useState(false);
     const [testing, setTesting] = useState(false);
@@ -114,6 +116,8 @@ export function AddServerDialog() {
         setCommand('');
         setArgs('');
         setCategory('other');
+        setTransport('stdio');
+        setServerUrl('');
         setEnvVars([]);
         setDependencyIssues([]);
         setTestResult(null);
@@ -241,11 +245,13 @@ export function AddServerDialog() {
             await createServer({
                 name: name.trim(),
                 description: description.trim() || undefined,
-                command: command.trim(),
+                command: transport === 'sse' ? 'sse' : command.trim(),
                 args: argsArray.length > 0 ? argsArray : undefined,
                 env,
                 secrets,
                 category: category,
+                transport,
+                url: transport === 'sse' ? serverUrl.trim() : undefined,
             });
 
             toast({
@@ -301,7 +307,42 @@ export function AddServerDialog() {
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="command">Command *</Label>
+                                <Label>Transport</Label>
+                                <Select value={transport} onValueChange={(v) => setTransport(v as 'stdio' | 'sse')}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="stdio">Stdio (Local)</SelectItem>
+                                        <SelectItem value="sse">SSE (Remote)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-[11px] text-muted-foreground">
+                                    {transport === 'stdio'
+                                        ? 'Launches a local process via command + args.'
+                                        : 'Connects to a remote MCP server over HTTP/SSE.'}
+                                </p>
+                            </div>
+
+                            {transport === 'sse' && (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="serverUrl">
+                                        <Globe className="h-3.5 w-3.5 inline mr-1" />
+                                        Server URL *
+                                    </Label>
+                                    <Input
+                                        id="serverUrl"
+                                        placeholder="https://mcp.example.com/sse"
+                                        value={serverUrl}
+                                        onChange={(e) => setServerUrl(e.target.value)}
+                                    />
+                                </div>
+                            )}
+
+                            {transport === 'stdio' && (
+                                <>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="command">Command *</Label>
                                 <Input
                                     id="command"
                                     placeholder="e.g., npx or python"
@@ -321,18 +362,20 @@ export function AddServerDialog() {
                                         ))}
                                     </div>
                                 )}
-                            </div>
+                                    </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="args">Arguments (one per line)</Label>
-                                <Textarea
-                                    id="args"
-                                    placeholder="-y&#10;@modelcontextprotocol/server-filesystem&#10;/path/to/directory"
-                                    value={args}
-                                    onChange={(e) => setArgs(e.target.value)}
-                                    rows={3}
-                                />
-                            </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="args">Arguments (one per line)</Label>
+                                        <Textarea
+                                            id="args"
+                                            placeholder="-y&#10;@modelcontextprotocol/server-filesystem&#10;/path/to/directory"
+                                            value={args}
+                                            onChange={(e) => setArgs(e.target.value)}
+                                            rows={3}
+                                        />
+                                    </div>
+                                </>
+                            )}
 
                             {testResult && !testResult.success && (
                                 <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-2">

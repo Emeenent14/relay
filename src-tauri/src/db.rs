@@ -22,6 +22,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         .await?;
 
     ensure_profile_schema(&pool).await?;
+    ensure_server_columns(&pool).await?;
 
     Ok(pool)
 }
@@ -32,6 +33,31 @@ fn get_db_path() -> PathBuf {
         .join("relay");
 
     data_dir.join("data.db")
+}
+
+/// Add new columns to existing servers table for rollback and remote transport support.
+async fn ensure_server_columns(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    let columns = [
+        ("previous_config", "TEXT"),
+        ("transport", "TEXT DEFAULT 'stdio'"),
+        ("url", "TEXT"),
+    ];
+
+    for (col, col_type) in &columns {
+        let has_col: Option<String> = sqlx::query_scalar(
+            &format!("SELECT name FROM pragma_table_info('servers') WHERE name = '{}'", col),
+        )
+        .fetch_optional(pool)
+        .await?;
+
+        if has_col.is_none() {
+            sqlx::query(&format!("ALTER TABLE servers ADD COLUMN {} {}", col, col_type))
+                .execute(pool)
+                .await?;
+        }
+    }
+
+    Ok(())
 }
 
 async fn ensure_profile_schema(pool: &SqlitePool) -> Result<(), sqlx::Error> {

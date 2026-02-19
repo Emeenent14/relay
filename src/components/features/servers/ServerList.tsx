@@ -3,6 +3,7 @@ import { Plus, Upload, RefreshCw, Server, Library, ChevronDown } from 'lucide-re
 import { Button } from '../../ui/button';
 import { ServerCard } from './ServerCard';
 import { ServerCatalogDialog } from './ServerCatalogDialog';
+import { ConflictWarningBanner } from './ConflictWarningBanner';
 import { useServerStore } from '../../../stores/serverStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useToast } from '../../ui/use-toast';
@@ -149,6 +150,7 @@ export function ServerList() {
                     </div>
                 ) : (
                     <div className="space-y-3">
+                        <ConflictWarningBanner refreshKey={servers.length} />
                         {servers.map((server) => (
                             <ServerCard key={server.id} server={server} />
                         ))}

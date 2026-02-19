@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS servers (
     icon_url TEXT,
     documentation_url TEXT,
     secrets TEXT DEFAULT '[]',
+    previous_config TEXT,
+    transport TEXT DEFAULT 'stdio',
+    url TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -34,7 +37,6 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE INDEX IF NOT EXISTS idx_servers_enabled ON servers(enabled);
 CREATE INDEX IF NOT EXISTS idx_servers_category ON servers(category);
-CREATE INDEX IF NOT EXISTS idx_servers_profile ON servers(profile_id);
 
 -- Default settings
 INSERT OR IGNORE INTO settings (key, value, updated_at)

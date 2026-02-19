@@ -162,10 +162,12 @@ pub async fn create_server(
     let secrets_json = serde_json::to_string(&secret_keys).map_err(|e| e.to_string())?;
     let category = input.category.unwrap_or_else(|| "other".to_string());
     let source = if input.marketplace_id.is_some() { "marketplace" } else { "local" };
+    let transport = input.transport.unwrap_or_else(|| "stdio".to_string());
+    let url = input.url;
 
     sqlx::query(
-        "INSERT INTO servers (id, name, description, command, args, env, secrets, enabled, category, profile_id, source, marketplace_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO servers (id, name, description, command, args, env, secrets, enabled, category, profile_id, source, marketplace_id, transport, url, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(&id)
     .bind(&input.name)
@@ -178,6 +180,8 @@ pub async fn create_server(
     .bind(&active_profile)
     .bind(&source)
     .bind(&input.marketplace_id)
+    .bind(&transport)
+    .bind(&url)
     .bind(&now)
     .bind(&now)
     .execute(&*db)
@@ -230,11 +234,13 @@ pub async fn update_server(
     
     if let Some(enabled) = input.enabled { server.enabled = enabled; }
     if let Some(cat) = input.category { server.category = cat; }
+    if let Some(transport) = input.transport { server.transport = Some(transport); }
+    if let Some(url) = input.url { server.url = Some(url); }
 
     server.updated_at = chrono::Utc::now().to_rfc3339();
 
     sqlx::query(
-        "UPDATE servers SET name = ?, description = ?, command = ?, args = ?, env = ?, secrets = ?, enabled = ?, category = ?, updated_at = ? WHERE id = ? AND profile_id = ?"
+        "UPDATE servers SET name = ?, description = ?, command = ?, args = ?, env = ?, secrets = ?, enabled = ?, category = ?, transport = ?, url = ?, updated_at = ? WHERE id = ? AND profile_id = ?"
     )
     .bind(&server.name)
     .bind(&server.description)
@@ -244,6 +250,8 @@ pub async fn update_server(
     .bind(&server.secrets)
     .bind(&server.enabled)
     .bind(&server.category)
+    .bind(&server.transport)
+    .bind(&server.url)
     .bind(&server.updated_at)
     .bind(&server.id)
     .bind(&active_profile)

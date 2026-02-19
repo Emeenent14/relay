@@ -65,6 +65,8 @@ async fn main() {
             commands::diagnostics::test_server_connection,
             // Marketplace commands
             commands::marketplace::fetch_marketplace_servers,
+            // Conflict detection
+            commands::conflicts::detect_tool_conflicts,
             // Update commands
             commands::updates::check_update,
         ])

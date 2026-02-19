@@ -2,49 +2,91 @@
 
 This comprehensive plan covers all remaining work required to meet the "MCP Toolkit" v1.0 vision, ranked by strict priority.
 
-## User Review Required
+## ✅ Shipped (v0.1.x)
 
-> [!IMPORTANT]
-> **Priority 1 (Critical)** items tackle the #1 and #2 top pain points: **Context Window Monitoring** and **Debugging/Logs**. These are the core differentiators against Docker.
+### Context Window Monitoring (The "Proxy")
 
-## Priority 1: Critical Core Differentiators (v1.0 MVP)
+**Status**: Shipped in v0.1.0
 
-### 1.1 Context Window Monitoring (The "Proxy")
-**Why**: Addresses the #2 top pain point ("Context window is always full").
-**Goal**: Intercept traffic to count tokens/bytes.
-- **Implement Rust Proxy**: Create a lightweight TCP/Stdio proxy in `src-tauri/src/proxy.rs`.
-- **Token Counting**: Simple byte-count estimation (or BPE if feasible) during message interception.
-- **UI Badge**: Add "Context Usage" badge to `ServerCard.tsx`.
+- Rust proxy in `src-tauri/src/proxy.rs` intercepts traffic for token/byte counting.
+- "Context Usage" badges on `ServerCard.tsx`.
 
-### 1.2 Live Log Viewer & Debugging
-**Why**: Addresses "Generic error messages" & "What's running?" (Pain points #3, #6).
-**Goal**: Expose the already-implemented log streams to the user.
-- **[UI Fix] Enable Logs**: Add the missing "Terminal" icon button to `ServerCard.tsx` to open `ServerLogsDialog`.
-- **Enhance Dialog**: Ensure `ServerLogsDialog` auto-scrolls and correctly color-codes `stderr` (Red) vs `stdout`.
+### Live Log Viewer & Debugging
 
-### 1.3 Cross-Platform Reliability (Export)
-**Why**: Addresses "Cross-platform inconsistency" (Pain point #5).
-**Goal**: Ensure "One-click export" works for custom install paths.
-- **Improved Dialog**: Update `ConnectCustomDialog.tsx` to include a file picker for manually selecting config paths (e.g., `settings.json`) if auto-detection fails.
+**Status**: Shipped in v0.1.0
 
-## Priority 2: High Value / Quality of Life
+- Terminal icon in `ServerCard.tsx` opens `ServerLogsDialog`.
+- Auto-scrolling, color-coded `stderr` (red) vs `stdout`.
 
-### 2.1 Profiles & Grouping
-**Why**: "Power Developers" need to switch contexts (e.g., "Coding", "Writing").
-- **Database Schema**: Add `profiles` table to SQLite.
-- **UI Selector**: Add a profile dropdown to the main header to toggle sets of servers.
+### Cross-Platform Reliability (Export)
 
-### 2.2 Advanced Error Handling
-**Why**: Users need to know *why* a connection failed.
-- **Health Checks**: Implement a "Test Connection" button that dry-runs the command and captures the exit code/error message immediately.
+**Status**: Shipped in v0.1.0
 
-## Priority 3: Future / Pro Features (v2.0)
+- One-click export to Claude, Cursor, Windsurf, and custom clients.
+- File picker for manually selecting config paths.
 
-### 3.1 Cloud Sync
+### Profiles & Grouping
+
+**Status**: Shipped in v0.1.2
+
+- `profiles` table in SQLite.
+- Profile dropdown in sidebar to toggle sets of servers.
+
+### Advanced Error Handling
+
+**Status**: Shipped in v0.1.2
+
+- "Test Connection" button with dependency checking and health checks.
+
+### Marketplace & Server Discovery
+
+**Status**: Shipped in v0.1.3
+
+- Docker Hub and MCP Registry integration.
+- Curated local catalog fallback.
+- Trust indicators (Verified, Official, Community) and freshness metadata.
+
+---
+
+## 🚧 In Progress (v0.1.5)
+
+### Conflict Detection
+
+- Detect duplicate tool names across enabled servers.
+- Warning banner on the server list page.
+
+### Remote Server Support (HTTP/SSE)
+
+- Add `transport` and `url` fields for SSE-based MCP servers.
+- UI for selecting transport type during server creation.
+
+### Environment Variable Injection Controls
+
+- Advanced section in server config for editing env vars.
+- Support for sensitive/masked values.
+
+---
+
+## 📋 Backlog (v2.0+)
+
+### Cloud Sync
+
 **Why**: Sync configs across laptop/desktop.
-- **Architecture**: Requires integration with a backend (Supabase/Firebase) for user auth and data storage.
 
-### 3.2 Team Features
+- Architecture: Requires integration with a backend (Supabase/Firebase) for user auth and data storage.
+
+### Team Features
+
 **Why**: Enterprise governance.
-- **RBAC**: Role-based access control.
-- **Shared Configs**: Team-wide server lists.
+
+- RBAC: Role-based access control.
+- Shared Configs: Team-wide server lists.
+
+### Visual Relationship Graph
+
+- D3.js-based visualization of server-tool-client connections.
+
+### System Tray & Global Hotkey
+
+- Minimize to system tray on close.
+- Configurable global hotkey (default: `Ctrl+Shift+R`).
