@@ -1,4 +1,5 @@
 pub mod config;
+pub mod conflicts;
 pub mod diagnostics;
 pub mod marketplace;
 pub mod mcp;

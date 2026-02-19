@@ -18,6 +18,9 @@ pub struct Server {
     pub marketplace_id: Option<String>,
     pub icon_url: Option<String>,
     pub documentation_url: Option<String>,
+    pub previous_config: Option<String>,
+    pub transport: Option<String>,
+    pub url: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -32,6 +35,8 @@ pub struct CreateServerInput {
     pub secrets: Option<Vec<String>>,
     pub category: Option<String>,
     pub marketplace_id: Option<String>,
+    pub transport: Option<String>,
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,4 +50,6 @@ pub struct UpdateServerInput {
     pub secrets: Option<Vec<String>>,
     pub enabled: Option<bool>,
     pub category: Option<String>,
+    pub transport: Option<String>,
+    pub url: Option<String>,
 }

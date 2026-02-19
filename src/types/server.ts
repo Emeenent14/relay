@@ -30,6 +30,9 @@ export interface Server {
     icon_url: string | null;
     documentation_url: string | null;
     secrets: string; // JSON string array of secret keys
+    previous_config: string | null;
+    transport: string | null; // 'stdio' | 'sse'
+    url: string | null;
     context_usage?: ContextUsage;
     created_at: string;
     updated_at: string;
@@ -47,6 +50,8 @@ export interface CreateServerInput {
     secrets?: string[];
     category?: string;
     marketplace_id?: string;
+    transport?: string;
+    url?: string;
 }
 
 /**
@@ -62,6 +67,8 @@ export interface UpdateServerInput {
     secrets?: string[];
     enabled?: boolean;
     category?: string;
+    transport?: string;
+    url?: string;
 }
 
 /**

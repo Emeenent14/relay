@@ -3,7 +3,7 @@ import { marketplaceService, MarketplaceServer } from '../../services/marketplac
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Search, Download, ExternalLink, ShieldCheck, Globe, RefreshCw, Box, AlertCircle, TrendingUp } from 'lucide-react';
+import { Search, Download, ExternalLink, Globe, RefreshCw, AlertCircle, TrendingUp, Clock, Users, Building2, BadgeCheck } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { useUIStore } from '../../stores/uiStore';
 import { SERVER_CATEGORIES, type ServerCategory } from '../../lib/constants';
@@ -52,10 +52,7 @@ export function MarketplacePage() {
                         variant: 'destructive'
                     });
                 } else {
-                    toast({
-                        title: 'Marketplace Debug',
-                        description: `Fetched: ${response.servers.length} online servers.`,
-                    });
+                    // Successful online fetch — no debug toast
                 }
             } catch (err) {
                 console.error('Failed to load marketplace:', err);
@@ -77,30 +74,52 @@ export function MarketplacePage() {
         return server.category.toLowerCase() === selectedCategory.toLowerCase();
     });
 
-    // Get source badge for server
-    const getSourceBadge = (server: MarketplaceServer) => {
-        if (server.source === 'docker') {
+    // Get trust badge for server
+    const getTrustBadge = (server: MarketplaceServer) => {
+        const level = server.trustLevel || (server.source === 'registry' ? 'official' : 'community');
+        if (level === 'verified') {
             return (
-                <Badge variant="default" className="text-[9px] px-1.5 py-0 bg-blue-600 hover:bg-blue-600">
-                    <Box className="h-2.5 w-2.5 mr-0.5" />
-                    Docker
+                <Badge variant="default" className="text-[9px] px-1.5 py-0 bg-emerald-600 hover:bg-emerald-600">
+                    <BadgeCheck className="h-2.5 w-2.5 mr-0.5" />
+                    Verified
                 </Badge>
             );
         }
-        if (server.source === 'registry') {
+        if (level === 'official') {
             return (
-                <Badge variant="default" className="text-[9px] px-1.5 py-0 bg-green-600 hover:bg-green-600">
-                    <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />
+                <Badge variant="default" className="text-[9px] px-1.5 py-0 bg-blue-600 hover:bg-blue-600">
+                    <Building2 className="h-2.5 w-2.5 mr-0.5" />
                     Official
                 </Badge>
             );
         }
         return (
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
-                <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />
-                Curated
+                <Users className="h-2.5 w-2.5 mr-0.5" />
+                Community
             </Badge>
         );
+    };
+
+    // Format relative time
+    const formatRelativeTime = (dateStr?: string) => {
+        if (!dateStr) return null;
+        try {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now.getTime() - date.getTime();
+            const diffMins = Math.floor(diffMs / 60000);
+            if (diffMins < 60) return `${diffMins}m ago`;
+            const diffHrs = Math.floor(diffMins / 60);
+            if (diffHrs < 24) return `${diffHrs}h ago`;
+            const diffDays = Math.floor(diffHrs / 24);
+            if (diffDays < 30) return `${diffDays}d ago`;
+            const diffMonths = Math.floor(diffDays / 30);
+            if (diffMonths < 12) return `${diffMonths}mo ago`;
+            return `${Math.floor(diffMonths / 12)}y ago`;
+        } catch {
+            return null;
+        }
     };
 
     // Format pull count for display
@@ -254,7 +273,7 @@ export function MarketplacePage() {
                                                     />
                                                 </div>
                                                 <div className="flex gap-1">
-                                                    {getSourceBadge(server)}
+                                                    {getTrustBadge(server)}
                                                 </div>
                                             </div>
 
@@ -274,12 +293,20 @@ export function MarketplacePage() {
                                                 <p className="text-[10px] text-zinc-500 font-mono truncate">
                                                     {server.packageName}
                                                 </p>
-                                                {server.pullCount && server.pullCount > 0 && (
-                                                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                                        <TrendingUp className="h-2.5 w-2.5" />
-                                                        {formatPullCount(server.pullCount)}
-                                                    </span>
-                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    {formatRelativeTime(server.lastUpdated) && (
+                                                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                                            <Clock className="h-2.5 w-2.5" />
+                                                            {formatRelativeTime(server.lastUpdated)}
+                                                        </span>
+                                                    )}
+                                                    {server.pullCount && server.pullCount > 0 && (
+                                                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                                            <TrendingUp className="h-2.5 w-2.5" />
+                                                            {formatPullCount(server.pullCount)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="flex items-center gap-2 mt-auto">

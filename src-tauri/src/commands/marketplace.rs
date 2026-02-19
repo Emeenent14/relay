@@ -29,6 +29,10 @@ pub struct MarketplaceServer {
     pub pull_count: Option<u64>,
     #[serde(rename = "starCount")]
     pub star_count: Option<u64>,
+    #[serde(rename = "trustLevel")]
+    pub trust_level: String,
+    #[serde(rename = "lastUpdated")]
+    pub last_updated: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,6 +47,7 @@ struct DockerHubRepo {
     description: Option<String>,
     pull_count: Option<u64>,
     star_count: Option<u64>,
+    last_updated: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -189,6 +194,8 @@ async fn fetch_from_docker_hub(client: reqwest::Client, query: String) -> Result
                 requires_config: false,
                 pull_count: repo.pull_count,
                 star_count: repo.star_count,
+                trust_level: "community".to_string(),
+                last_updated: repo.last_updated,
             };
             
             all_servers.push(server);
@@ -263,6 +270,8 @@ async fn fetch_from_registry(client: reqwest::Client, query: String) -> Result<V
             requires_config: false,
             pull_count: None,
             star_count: None,
+            trust_level: "official".to_string(),
+            last_updated: None,
         })
     }).collect())
 }

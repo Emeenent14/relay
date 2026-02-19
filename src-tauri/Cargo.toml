@@ -1,6 +1,6 @@
 [package]
 name = "relay"
-version = "0.1.4"
+version = "0.1.5"
 description = "Visual MCP Server Manager"
 authors = ["Franklin O. <emeenent14@gmail.com>"]
 edition = "2021"

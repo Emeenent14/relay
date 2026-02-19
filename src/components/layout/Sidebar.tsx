@@ -181,11 +181,10 @@ export function Sidebar() {
                         ))}
                     </div>
                     <p className="text-xs text-muted-foreground text-center">
-                        Relay v0.1.0
+                        Relay v0.1.4
                     </p>
                 </div>
             </aside>
         </TooltipProvider>
     );
 }
-
